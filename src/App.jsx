@@ -36,6 +36,11 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/account" element={
+  <ProtectedRoute session={session}>
+    <Account session={session} />
+  </ProtectedRoute>
+} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
