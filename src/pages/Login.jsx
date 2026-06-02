@@ -19,12 +19,14 @@ export default function Login() {
     setLoading(false)
   }
 
-  async function handleGoogle() {
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: `${window.location.origin}/dashboard` }
-    })
-  }
+async function handleGoogle() {
+  await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: `${window.location.origin}/auth/callback`
+    }
+  })
+}
 
   return (
     <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: '400px', margin: '4rem auto', padding: '2rem' }}>
