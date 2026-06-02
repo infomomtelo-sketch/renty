@@ -1,3 +1,4 @@
+import AuthCallback from './pages/AuthCallback'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
@@ -34,6 +35,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
