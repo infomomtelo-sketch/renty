@@ -56,6 +56,7 @@ export default function Dashboard({ session }) {
           <Link to="/properties">Properties</Link>
           <Link to="/tenants">Tenants</Link>
           <Link to="/leases/new">New Lease</Link>
+          <Link to="/account">Account</Link>
           <button onClick={handleSignOut} style={{ padding: '0.5rem 1rem', cursor: 'pointer', background: 'none', border: '1px solid #ccc', borderRadius: '6px' }}>Sign out</button>
         </div>
       </nav>
