@@ -1,33 +1,52 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
+import { supabase, WORKER_URL } from '../lib/supabase'
 
 export default function Dashboard({ session }) {
   const navigate = useNavigate()
   const [properties, setProperties] = useState([])
   const [tenants, setTenants] = useState([])
   const [leases, setLeases] = useState([])
+  const [profile, setProfile] = useState(null)
+  const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
-    fetchData()
-  }, [])
+  useEffect(() => { fetchData() }, [])
 
   async function fetchData() {
     const uid = session.user.id
-    const [p, t, l] = await Promise.all([
+    const [p, t, l, pr] = await Promise.all([
       supabase.from('properties').select('*').eq('landlord_id', uid),
       supabase.from('tenants').select('*').eq('landlord_id', uid),
       supabase.from('leases').select('*').eq('landlord_id', uid),
+      supabase.from('profiles').select('*').eq('id', uid).single(),
     ])
     setProperties(p.data || [])
     setTenants(t.data || [])
     setLeases(l.data || [])
+    setProfile(pr.data)
+  }
+
+  async function handleSubscribe() {
+    setLoading(true)
+    const res = await fetch(`${WORKER_URL}/api/checkout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: session.user.id,
+        email: session.user.email,
+      }),
+    })
+    const data = await res.json()
+    if (data.url) window.location.href = data.url
+    setLoading(false)
   }
 
   async function handleSignOut() {
     await supabase.auth.signOut()
     navigate('/')
   }
+
+  const isActive = profile?.subscription_status === 'active' || profile?.subscription_status === 'trial'
 
   return (
     <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: '900px', margin: '0 auto', padding: '2rem' }}>
@@ -40,6 +59,24 @@ export default function Dashboard({ session }) {
           <button onClick={handleSignOut} style={{ padding: '0.5rem 1rem', cursor: 'pointer', background: 'none', border: '1px solid #ccc', borderRadius: '6px' }}>Sign out</button>
         </div>
       </nav>
+
+      {!isActive && (
+        <div style={{ padding: '1.5rem', background: '#fff8e1', border: '1px solid #ffe082', borderRadius: '8px', marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div style={{ fontWeight: '500' }}>Start your 7-day free trial</div>
+            <div style={{ color: '#666', fontSize: '0.9rem' }}>Then $9/month — cancel anytime</div>
+          </div>
+          <button onClick={handleSubscribe} disabled={loading} style={{ padding: '0.75rem 1.5rem', background: '#000', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
+            {loading ? 'Loading...' : 'Start Free Trial'}
+          </button>
+        </div>
+      )}
+
+      {isActive && (
+        <div style={{ padding: '1rem', background: '#e8f5e9', border: '1px solid #a5d6a7', borderRadius: '8px', marginBottom: '2rem' }}>
+          <span style={{ color: '#2e7d32', fontWeight: '500' }}>✓ Pro plan active</span>
+        </div>
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
         {[
