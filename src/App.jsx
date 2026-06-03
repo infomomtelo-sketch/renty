@@ -42,6 +42,11 @@ export default function App() {
     <Account session={session} />
   </ProtectedRoute>
 } />
+        <Route path="/leases" element={
+  <ProtectedRoute session={session}>
+    <Leases session={session} />
+  </ProtectedRoute>
+} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
