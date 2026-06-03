@@ -83,7 +83,7 @@ export default function Dashboard({ session }) {
         {[
           { label: 'Properties', count: properties.length, link: '/properties' },
           { label: 'Tenants', count: tenants.length, link: '/tenants' },
-          { label: 'Leases', count: leases.length, link: '/leases/new' },
+          { label: 'Leases', count: leases.length, link: '/leases' },
         ].map(s => (
           <div key={s.label} onClick={() => navigate(s.link)} style={{ padding: '1.5rem', border: '1px solid #eee', borderRadius: '8px', cursor: 'pointer', textAlign: 'center' }}>
             <div style={{ fontSize: '2.5rem', fontWeight: 'bold' }}>{s.count}</div>
