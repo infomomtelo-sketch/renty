@@ -12,6 +12,8 @@ import LeaseNew from './pages/LeaseNew'
 import LeaseView from './pages/LeaseView'
 import Account from './pages/Account'
 import Leases from './pages/Leases'
+import Privacy from './pages/Privacy'
+import Terms from './pages/Terms'
 
 function ProtectedRoute({ session, children }) {
   if (!session) return <Navigate to="/login" replace />
@@ -42,6 +44,8 @@ export default function App() {
     <Account session={session} />
   </ProtectedRoute>
 } />
+        <Route path="/privacy" element={<Privacy />} />
+<Route path="/terms" element={<Terms />} />
         <Route path="/leases" element={
   <ProtectedRoute session={session}>
     <Leases session={session} />
