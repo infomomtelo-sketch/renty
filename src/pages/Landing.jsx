@@ -14,7 +14,7 @@ export default function Landing() {
       </nav>
 
       <div style={{ textAlign: 'center', padding: '4rem 0' }}>
-        <h1 style={{ fontSize: '3rem', margin: '0 0 1rem', lineHeight: '1.2' }}>
+        <h1 style={{ fontSize: 'clamp(2rem, 6vw, 3rem)', margin: '0 0 1rem', lineHeight: '1.2' }}>
           Landlord Management Software That Actually Works
         </h1>
         <p style={{ fontSize: '1.2rem', color: '#666', marginBottom: '2rem' }}>
@@ -25,7 +25,7 @@ export default function Landing() {
         </button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '2rem', padding: '4rem 0' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '2rem', padding: '4rem 0' }}>
         <div style={{ padding: '1.5rem', border: '1px solid #eee', borderRadius: '8px' }}>
           <h3 style={{ margin: '0 0 0.75rem' }}>Generate Lease Agreements Online</h3>
           <p style={{ margin: 0, color: '#666', lineHeight: '1.6' }}>
@@ -48,7 +48,7 @@ export default function Landing() {
 
       <div style={{ padding: '4rem 0', borderTop: '1px solid #eee', borderBottom: '1px solid #eee', marginBottom: '4rem' }}>
         <h2 style={{ textAlign: 'center', marginBottom: '2rem' }}>Trusted by Independent Landlords</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.5rem' }}>
           {[
             { quote: 'Generated my first lease in under 5 minutes. Way easier than Word templates.', name: 'Maria T.', location: 'Fresno, CA' },
             { quote: 'Finally a landlord tool that isn\'t overkill. I manage 3 units and this is perfect.', name: 'James R.', location: 'Clovis, CA' },
@@ -83,7 +83,7 @@ export default function Landing() {
           <button onClick={() => navigate('/signup')} style={{ width: '100%', padding: '0.75rem', background: '#fff', color: '#000', border: '1px solid #000', borderRadius: '6px', cursor: 'pointer', fontSize: '0.9rem' }}>
             Start free — no credit card needed
           </button>
-        </div>
+        </div> 
       </div>
 
       <div style={{ textAlign: 'center', padding: '2rem 0', borderTop: '1px solid #eee', color: '#666', fontSize: '0.9rem' }}>
