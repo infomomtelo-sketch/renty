@@ -11,6 +11,7 @@ import Tenants from './pages/Tenants'
 import LeaseNew from './pages/LeaseNew'
 import LeaseView from './pages/LeaseView'
 import Account from './pages/Account'
+import Leases from './pages/Leases'
 
 function ProtectedRoute({ session, children }) {
   if (!session) return <Navigate to="/login" replace />
