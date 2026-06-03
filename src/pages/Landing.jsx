@@ -82,17 +82,20 @@ export default function Landing() {
           <button onClick={() => navigate('/signup')} style={{ width: '100%', padding: '0.75rem', background: '#fff', color: '#000', border: '1px solid #000', borderRadius: '6px', cursor: 'pointer', fontSize: '0.9rem' }}>
             Start free — no credit card needed
           </button>
-</div> 
-      </div>
-      <div style={{ textAlign: 'center', padding: '2rem 0', borderTop: '1px solid #eee', color: '#666', fontSize: '0.9rem' }}>
-  <p>Renty — Simple landlord management software for independent property owners.</p>
-  <div style={{ display: 'flex', justifyContent: 'center', gap: '1.5rem', margin: '0.75rem 0', flexWrap: 'wrap' }}>
-    <a href="/privacy" style={{ color: '#666', textDecoration: 'none' }}>Privacy Policy</a>
-    <a href="/terms" style={{ color: '#666', textDecoration: 'none' }}>Terms of Service</a>
-    <a href="mailto:support@rentyapp.net" style={{ color: '#666', textDecoration: 'none' }}>Support</a>
-    <a href="mailto:support@rentyapp.net" style={{ color: '#666', textDecoration: 'none' }}>Contact</a>
-  </div>
-  <p>© 2026 Renty. Built for California landlords.</p>
 </div>
+      </div>
+
+      <div style={{ textAlign: 'center', padding: '2rem 0', borderTop: '1px solid #eee', color: '#666', fontSize: '0.9rem' }}>
+        <p>Renty — Simple landlord management software for independent property owners.</p>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '1.5rem', margin: '0.75rem 0', flexWrap: 'wrap' }}>
+          <a href="/privacy" style={{ color: '#666', textDecoration: 'none' }}>Privacy Policy</a>
+          <a href="/terms" style={{ color: '#666', textDecoration: 'none' }}>Terms of Service</a>
+          <a href="mailto:support@rentyapp.net" style={{ color: '#666', textDecoration: 'none' }}>Support</a>
+          <a href="mailto:support@rentyapp.net" style={{ color: '#666', textDecoration: 'none' }}>Contact</a>
+        </div>
+        <p>© 2026 Renty. Built for California landlords.</p>
+      </div>
+    </div>
   )
 }
+
