@@ -11,6 +11,7 @@ export default function Properties({ session }) {
   const [editId, setEditId] = useState(null)
   const [selectedMap, setSelectedMap] = useState(null)
   const [expanded, setExpanded] = useState(null)
+  const [markingPaid, setMarkingPaid] = useState(null)
 
   useEffect(() => { fetchProperties() }, [])
 
@@ -30,7 +31,17 @@ export default function Properties({ session }) {
         .eq('property_id', p.id)
         .order('created_at', { ascending: false })
 
-      return { ...p, leases: leases || [] }
+      const leasesWithPayments = await Promise.all((leases || []).map(async l => {
+        const { data: payments } = await supabase
+          .from('rent_payments')
+          .select('*')
+          .eq('lease_id', l.id)
+          .order('due_date', { ascending: false })
+          .limit(6)
+        return { ...l, payments: payments || [] }
+      }))
+
+      return { ...p, leases: leasesWithPayments }
     }))
 
     setProperties(enriched)
@@ -52,7 +63,7 @@ export default function Properties({ session }) {
   }
 
   async function handleDelete(id) {
-    if (!confirm('Delete this property? All associated leases will also be deleted.')) return
+    if (!confirm('Delete this property? All leases will also be deleted.')) return
     await supabase.from('leases').delete().eq('property_id', id)
     await supabase.from('properties').delete().eq('id', id)
     fetchProperties()
@@ -65,6 +76,33 @@ export default function Properties({ session }) {
     fetchProperties()
   }
 
+  async function handleMarkPaid(e, lease) {
+    e.stopPropagation()
+    setMarkingPaid(lease.id)
+    const today = new Date()
+    const dueDate = new Date(today.getFullYear(), today.getMonth(), 1)
+      .toISOString().split('T')[0]
+
+    const existing = lease.payments?.find(p => p.due_date === dueDate)
+
+    if (existing) {
+      await supabase.from('rent_payments').delete().eq('id', existing.id)
+    } else {
+      await supabase.from('rent_payments').insert({
+        lease_id: lease.id,
+        landlord_id: session.user.id,
+        tenant_id: lease.tenant_id,
+        property_id: lease.property_id,
+        amount: lease.rent_amount,
+        due_date: dueDate,
+        paid_date: today.toISOString().split('T')[0],
+        status: 'paid',
+      })
+    }
+    setMarkingPaid(null)
+    fetchProperties()
+  }
+
   function handleEdit(p) {
     setForm({ address: p.address, city: p.city || '', zip: p.zip || '', bedrooms: p.bedrooms || '', bathrooms: p.bathrooms || '', rent_amount: p.rent_amount || '' })
     setEditId(p.id)
@@ -73,8 +111,10 @@ export default function Properties({ session }) {
   }
 
   const totalMonthly = properties.reduce((sum, p) => sum + (Number(p.rent_amount) || 0), 0)
-
   const inputStyle = { padding: '0.75rem', borderRadius: '6px', border: '1px solid #ccc', fontSize: '1rem' }
+  const currentMonth = new Date().toLocaleString('default', { month: 'long', year: 'numeric' })
+  const currentDueDate = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+    .toISOString().split('T')[0]
 
   return (
     <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: '900px', margin: '0 auto', padding: '1rem' }}>
@@ -124,8 +164,8 @@ export default function Properties({ session }) {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                 <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>${p.rent_amount}/mo</div>
-                <span style={{ fontSize: '0.8rem', color: p.leases?.length > 0 ? '#2e7d32' : '#666' }}>
-                  {p.leases?.length > 0 ? `${p.leases.length} lease${p.leases.length > 1 ? 's' : ''}` : 'No leases'}
+                <span style={{ fontSize: '0.8rem', color: p.leases?.length > 0 ? '#2e7d32' : '#999' }}>
+                  {p.leases?.length > 0 ? `${p.leases.length} lease${p.leases.length > 1 ? 's' : ''}` : 'Vacant'}
                 </span>
                 <span style={{ fontSize: '0.85rem', color: '#666' }}>{expanded === p.id ? '▲' : '▼'}</span>
               </div>
@@ -136,16 +176,16 @@ export default function Properties({ session }) {
 
                 <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
                   <button onClick={() => setSelectedMap(selectedMap === p.id ? null : p.id)} style={{ padding: '0.4rem 0.8rem', background: '#f0f0f0', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}>
-                    📍 {selectedMap === p.id ? 'Hide Map' : 'Show Map'}
+                    📍 Map
                   </button>
                   <button onClick={() => handleEdit(p)} style={{ padding: '0.4rem 0.8rem', background: '#f0f0f0', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}>
-                    ✏️ Edit Property
+                    ✏️ Edit
                   </button>
                   <button onClick={() => navigate('/leases/new')} style={{ padding: '0.4rem 0.8rem', background: '#000', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}>
-                    + New Lease
+                    + Lease
                   </button>
                   <button onClick={() => handleDelete(p.id)} style={{ padding: '0.4rem 0.8rem', background: '#ffebee', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', color: '#c62828' }}>
-                    🗑️ Delete Property
+                    🗑️
                   </button>
                 </div>
 
@@ -163,48 +203,65 @@ export default function Properties({ session }) {
                 )}
 
                 {p.leases?.length === 0 && (
-                  <p style={{ color: '#666', fontSize: '0.9rem', margin: '0' }}>No leases for this property yet.</p>
+                  <p style={{ color: '#666', fontSize: '0.9rem', margin: 0 }}>No leases yet.</p>
                 )}
 
-                {p.leases?.length > 0 && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                    <div style={{ fontSize: '0.85rem', fontWeight: '500', color: '#333' }}>Leases & Tenants</div>
-                    {p.leases.map(l => (
-                      <div key={l.id} style={{ padding: '0.75rem 1rem', background: '#fff', border: '1px solid #eee', borderRadius: '8px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem' }}>
-                          <div>
-                            <div style={{ fontWeight: '500', fontSize: '0.9rem' }}>{l.tenants?.full_name || 'Unknown tenant'}</div>
-                            <div style={{ color: '#666', fontSize: '0.8rem' }}>{l.tenants?.email} · {l.tenants?.phone}</div>
-                            <div style={{ color: '#666', fontSize: '0.8rem', marginTop: '0.25rem' }}>
-                              {l.start_date} → {l.end_date}
-                            </div>
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                            <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>${l.rent_amount}/mo</div>
-                            <span style={{
-                              padding: '0.2rem 0.6rem',
-                              borderRadius: '20px',
-                              fontSize: '0.75rem',
-                              fontWeight: '500',
-                              background: l.status === 'signed' ? '#e8f5e9' : '#fff8e1',
-                              color: l.status === 'signed' ? '#2e7d32' : '#f57f17'
-                            }}>
-                              {l.status || 'draft'}
-                            </span>
-                            {l.pdf_url && (
-                              <a href={l.pdf_url} target="_blank" rel="noopener noreferrer" style={{ padding: '0.3rem 0.6rem', background: '#000', color: '#fff', borderRadius: '6px', textDecoration: 'none', fontSize: '0.75rem' }}>
-                                PDF
-                              </a>
-                            )}
-                            <button onClick={e => handleDeleteLease(e, l.id)} style={{ padding: '0.3rem 0.6rem', background: '#ffebee', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', color: '#c62828' }}>
-                              🗑️
-                            </button>
-                          </div>
+                {p.leases?.map(l => {
+                  const currentPaid = l.payments?.find(pay => pay.due_date === currentDueDate && pay.status === 'paid')
+                  return (
+                    <div key={l.id} style={{ padding: '1rem', background: '#fff', border: '1px solid #eee', borderRadius: '8px', marginBottom: '0.75rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                        <div>
+                          <div style={{ fontWeight: '500' }}>{l.tenants?.full_name || 'Unknown'}</div>
+                          <div style={{ color: '#666', fontSize: '0.8rem' }}>{l.tenants?.phone} · {l.tenants?.email}</div>
+                          <div style={{ color: '#666', fontSize: '0.8rem' }}>{l.start_date} → {l.end_date}</div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                          <span style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>${l.rent_amount}/mo</span>
+                          {l.pdf_url && (
+                            <a href={l.pdf_url} target="_blank" rel="noopener noreferrer" style={{ padding: '0.3rem 0.6rem', background: '#000', color: '#fff', borderRadius: '6px', textDecoration: 'none', fontSize: '0.75rem' }}>PDF</a>
+                          )}
+                          <button onClick={e => handleDeleteLease(e, l.id)} style={{ padding: '0.3rem 0.6rem', background: '#ffebee', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', color: '#c62828' }}>🗑️</button>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
+
+                      <div style={{ borderTop: '1px solid #eee', paddingTop: '0.75rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                          <span style={{ fontSize: '0.85rem', fontWeight: '500' }}>Rent — {currentMonth}</span>
+                          <button
+                            onClick={e => handleMarkPaid(e, l)}
+                            disabled={markingPaid === l.id}
+                            style={{
+                              padding: '0.4rem 0.8rem',
+                              background: currentPaid ? '#e8f5e9' : '#000',
+                              color: currentPaid ? '#2e7d32' : '#fff',
+                              border: currentPaid ? '1px solid #a5d6a7' : 'none',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              fontSize: '0.8rem',
+                              fontWeight: '500'
+                            }}
+                          >
+                            {markingPaid === l.id ? '...' : currentPaid ? '✓ Paid — undo' : 'Mark as Paid'}
+                          </button>
+                        </div>
+
+                        {l.payments?.length > 0 && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                            {l.payments.map(pay => (
+                              <div key={pay.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: '#666', padding: '0.25rem 0', borderBottom: '1px solid #f5f5f5' }}>
+                                <span>{new Date(pay.due_date + 'T12:00:00').toLocaleString('default', { month: 'long', year: 'numeric' })}</span>
+                                <span style={{ color: pay.status === 'paid' ? '#2e7d32' : '#c62828', fontWeight: '500' }}>
+                                  {pay.status === 'paid' ? `✓ Paid ${pay.paid_date}` : '✗ Unpaid'}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             )}
           </div>
