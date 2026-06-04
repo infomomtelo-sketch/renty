@@ -10,7 +10,7 @@ export default function Tenants({ session }) {
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState(null)
 
-  useEffect(() => { fetchTenants() }, []) 
+  useEffect(() => { fetchTenants() }, [])
 
   async function fetchTenants() {
     const { data } = await supabase.from('tenants').select('*').eq('landlord_id', session.user.id)
@@ -89,3 +89,13 @@ export default function Tenants({ session }) {
               <button onClick={() => handleEdit(t)} style={{ padding: '0.4rem 0.8rem', background: '#f0f0f0', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}>
                 ✏️ Edit
               </button>
+              <button onClick={() => handleDelete(t.id)} style={{ padding: '0.4rem 0.8rem', background: '#ffebee', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', color: '#c62828' }}>
+                🗑️ Delete
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
