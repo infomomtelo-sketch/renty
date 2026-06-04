@@ -10,7 +10,7 @@ export default function Tenants({ session }) {
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState(null)
 
-  useEffect(() => { fetchTenants() }, [])
+  useEffect(() => { fetchTenants() }, []) 
 
   async function fetchTenants() {
     const { data } = await supabase.from('tenants').select('*').eq('landlord_id', session.user.id)
