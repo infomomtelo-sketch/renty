@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase'
 export default function Properties({ session }) {
   const navigate = useNavigate()
   const [properties, setProperties] = useState([])
-  const [form, setForm] = useState({ address: '', city: '', zip: '', bedrooms: '', bathrooms: '', rent_amount: '' })
+  const [form, setForm] = useState({ address: '', city: '', zip: '', bedrooms: '', bathrooms: '', property_type: '', sqft: '' })
   const [loading, setLoading] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState(null)
@@ -134,23 +134,32 @@ export default function Properties({ session }) {
       </div>
 
       {showForm && (
-        <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', padding: '1.5rem', border: '1px solid #eee', borderRadius: '8px', marginBottom: '1.5rem' }}>
-          <input placeholder="Address" value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} required style={{ ...inputStyle, gridColumn: '1 / -1' }} />
-          <input placeholder="City" value={form.city} onChange={e => setForm({ ...form, city: e.target.value })} style={inputStyle} />
-          <input placeholder="ZIP" value={form.zip} onChange={e => setForm({ ...form, zip: e.target.value })} style={inputStyle} />
-          <input placeholder="Rent amount" type="number" value={form.rent_amount} onChange={e => setForm({ ...form, rent_amount: e.target.value })} style={inputStyle} />
-          <input placeholder="Bedrooms" type="number" value={form.bedrooms} onChange={e => setForm({ ...form, bedrooms: e.target.value })} style={inputStyle} />
-          <input placeholder="Bathrooms" type="number" value={form.bathrooms} onChange={e => setForm({ ...form, bathrooms: e.target.value })} style={{ ...inputStyle, gridColumn: '1 / -1' }} />
-          <button type="submit" disabled={loading} style={{ gridColumn: '1 / -1', padding: '0.75rem', background: '#000', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
-            {loading ? 'Saving...' : editId ? 'Update Property' : 'Save Property'}
-          </button>
-          {editId && (
-            <button type="button" onClick={() => { setShowForm(false); setEditId(null) }} style={{ gridColumn: '1 / -1', padding: '0.75rem', background: 'none', border: '1px solid #ccc', borderRadius: '6px', cursor: 'pointer' }}>
-              Cancel
-            </button>
-          )}
-        </form>
-      )}
+  <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', padding: '1.5rem', border: '1px solid #eee', borderRadius: '8px', marginBottom: '1.5rem' }}>
+    <input placeholder="Street Address" value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} required style={{ ...inputStyle, gridColumn: '1 / -1' }} />
+    <input placeholder="City" value={form.city} onChange={e => setForm({ ...form, city: e.target.value })} style={inputStyle} />
+    <input placeholder="ZIP" value={form.zip} onChange={e => setForm({ ...form, zip: e.target.value })} style={inputStyle} />
+    <input placeholder="Bedrooms" type="number" value={form.bedrooms} onChange={e => setForm({ ...form, bedrooms: e.target.value })} style={inputStyle} />
+    <input placeholder="Bathrooms" type="number" value={form.bathrooms} onChange={e => setForm({ ...form, bathrooms: e.target.value })} style={inputStyle} />
+    <select value={form.property_type} onChange={e => setForm({ ...form, property_type: e.target.value })} style={inputStyle}>
+      <option value="">Property Type</option>
+      <option value="house">House</option>
+      <option value="apartment">Apartment</option>
+      <option value="condo">Condo</option>
+      <option value="duplex">Duplex</option>
+      <option value="townhouse">Townhouse</option>
+      <option value="mobile">Mobile Home</option>
+    </select>
+    <input placeholder="Sq Footage (optional)" type="number" value={form.sqft} onChange={e => setForm({ ...form, sqft: e.target.value })} style={inputStyle} />
+    <button type="submit" disabled={loading} style={{ gridColumn: '1 / -1', padding: '0.75rem', background: '#000', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
+      {loading ? 'Saving...' : editId ? 'Update Property' : 'Save Property'}
+    </button>
+    {editId && (
+      <button type="button" onClick={() => { setShowForm(false); setEditId(null) }} style={{ gridColumn: '1 / -1', padding: '0.75rem', background: 'none', border: '1px solid #ccc', borderRadius: '6px', cursor: 'pointer' }}>
+        Cancel
+      </button>
+    )}
+  </form>
+)}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         {properties.length === 0 && <p style={{ color: '#666' }}>No properties yet. Add your first one.</p>}
