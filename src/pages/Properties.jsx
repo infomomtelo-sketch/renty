@@ -24,7 +24,7 @@ export default function Properties({ session }) {
 
     if (!props) return
 
-    const enriched = await Promise.all(props.map(async p => {
+    const enriched = await Promise.all(props.map(async p => { 
       const { data: leases } = await supabase
         .from('leases')
         .select(`*, tenants(full_name, email, phone)`)
