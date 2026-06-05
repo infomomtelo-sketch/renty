@@ -14,12 +14,15 @@ export default function Landing() {
       </nav>
 
       <div style={{ textAlign: 'center', padding: '4rem 0' }}>
-        <h1 style={{ fontSize: 'clamp(2rem, 6vw, 3rem)', margin: '0 0 1rem', lineHeight: '1.2' }}>
-          Landlord Management Software That Actually Works
-        </h1>
-        <p style={{ fontSize: '1.2rem', color: '#666', marginBottom: '2rem' }}>
-          Generate lease agreements online in minutes. Manage tenants, track properties, collect rent. No complexity, no hidden fees.
-        </p>
+      <h1 style={{ fontSize: 'clamp(2rem, 6vw, 3rem)', margin: '0 0 1rem', lineHeight: '1.2' }}>
+  Landlord Management Software That Actually Works
+</h1>
+<p style={{ fontSize: '1.2rem', color: '#666', marginBottom: '0.75rem' }}>
+  Generate lease agreements online in minutes. Manage tenants, track properties, collect rent.
+</p>
+<p style={{ fontSize: '1.1rem', color: '#000', fontWeight: '500', marginBottom: '2rem', padding: '0.75rem 1rem', background: '#f0f7ff', borderRadius: '8px', border: '1px solid #d0e8ff' }}>
+  🤖 The only landlord software with an AI property manager built in — at $9/month.
+</p>
         <button onClick={() => navigate('/signup')} style={{ padding: '1rem 2rem', fontSize: '1.1rem', background: '#000', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>
           Start free today — no credit card required
         </button>
