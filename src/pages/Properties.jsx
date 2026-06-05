@@ -48,19 +48,33 @@ export default function Properties({ session }) {
   }
 
   async function handleSubmit(e) {
-    e.preventDefault()
-    setLoading(true)
+  e.preventDefault()
+  setLoading(true)
+  try {
+    const data = {
+      address: form.address,
+      city: form.city,
+      zip: form.zip,
+      bedrooms: form.bedrooms ? Number(form.bedrooms) : null,
+      bathrooms: form.bathrooms ? Number(form.bathrooms) : null,
+      property_type: form.property_type || null,
+      sqft: form.sqft ? Number(form.sqft) : null,
+      landlord_id: session.user.id
+    }
     if (editId) {
-      await supabase.from('properties').update(form).eq('id', editId)
+      await supabase.from('properties').update(data).eq('id', editId)
       setEditId(null)
     } else {
-      await supabase.from('properties').insert({ ...form, landlord_id: session.user.id })
+      await supabase.from('properties').insert(data)
     }
-    setForm({ address: '', city: '', zip: '', bedrooms: '', bathrooms: '', rent_amount: '' })
+    setForm({ address: '', city: '', zip: '', bedrooms: '', bathrooms: '', property_type: '', sqft: '' })
     setShowForm(false)
     fetchProperties()
-    setLoading(false)
+  } catch (err) {
+    alert('Error: ' + err.message)
   }
+  setLoading(false)
+}
 
   async function handleDelete(id) {
     if (!confirm('Delete this property? All leases will also be deleted.')) return
