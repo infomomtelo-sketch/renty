@@ -101,6 +101,11 @@ export default function Dashboard({ session }) {
         <button onClick={() => navigate('/leases/new')} style={{ flex: 1, padding: '0.75rem', background: '#000', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.9rem' }}>
           + New Lease
         </button>
+        <AIAssistant 
+  properties={properties} 
+  tenants={tenants} 
+  leases={leases} 
+/>
       </div>
     </div>
   )
