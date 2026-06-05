@@ -1,3 +1,4 @@
+import AIAssistant from '../components/AIAssistant'
 import { useEffect, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { supabase, WORKER_URL } from '../lib/supabase'
