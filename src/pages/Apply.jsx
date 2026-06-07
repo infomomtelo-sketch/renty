@@ -6,7 +6,7 @@ export default function Apply() {
   const { propertyId } = useParams()
   const [property, setProperty] = useState(null)
   const [submitted, setSubmitted] = useState(false)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(false) 
   const [form, setForm] = useState({
     full_name: '',
     email: '',
