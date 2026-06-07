@@ -14,6 +14,7 @@ import Account from './pages/Account'
 import Leases from './pages/Leases'
 import Privacy from './pages/Privacy'
 import Terms from './pages/Terms'
+import Apply from './pages/Apply'
 
 function ProtectedRoute({ session, children }) {
   if (!session) return <Navigate to="/login" replace />
@@ -39,22 +40,13 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/account" element={
-  <ProtectedRoute session={session}>
-    <Account session={session} />
-  </ProtectedRoute>
-} />
-        <Route path="/privacy" element={<Privacy />} />
-<Route path="/terms" element={<Terms />} />
-        <Route path="/leases" element={
-  <ProtectedRoute session={session}>
-    <Leases session={session} />
-  </ProtectedRoute>
-} />
-        <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/privacy" element={<Privacy />} />
+        <Route path="/terms" element={<Terms />} />
+        <Route path="/apply/:propertyId" element={<Apply />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/dashboard" element={
           <ProtectedRoute session={session}>
             <Dashboard session={session} />
@@ -70,6 +62,11 @@ export default function App() {
             <Tenants session={session} />
           </ProtectedRoute>
         } />
+        <Route path="/leases" element={
+          <ProtectedRoute session={session}>
+            <Leases session={session} />
+          </ProtectedRoute>
+        } />
         <Route path="/leases/new" element={
           <ProtectedRoute session={session}>
             <LeaseNew session={session} />
@@ -78,6 +75,11 @@ export default function App() {
         <Route path="/leases/:id" element={
           <ProtectedRoute session={session}>
             <LeaseView session={session} />
+          </ProtectedRoute>
+        } />
+        <Route path="/account" element={
+          <ProtectedRoute session={session}>
+            <Account session={session} />
           </ProtectedRoute>
         } />
       </Routes>
