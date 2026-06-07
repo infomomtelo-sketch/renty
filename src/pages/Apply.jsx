@@ -8,7 +8,7 @@ export default function Apply() {
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false) 
   const [form, setForm] = useState({
-    full_name: '',
+    full_name: '', 
     email: '',
     phone: '',
     current_address: '',
