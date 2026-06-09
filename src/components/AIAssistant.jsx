@@ -48,8 +48,18 @@ export default function AIAssistant({ properties, tenants, leases }) {
     setInput('')
     setEmailStatus(null)
     setShowSendButton(false)
-    setMessages(m => [...m, { role: 'user', text: userMsg }])
+
+    const updatedMessages = [...messages, { role: 'user', text: userMsg }]
+    setMessages(updatedMessages)
     setLoading(true)
+
+    // Build conversation history for the API (exclude the initial greeting)
+    const history = updatedMessages
+      .slice(1) // skip the initial assistant greeting
+      .map(m => ({
+        role: m.role === 'user' ? 'user' : 'assistant',
+        content: m.text,
+      }))
 
     try {
       const token = await getToken()
@@ -59,7 +69,7 @@ export default function AIAssistant({ properties, tenants, leases }) {
           'Content-Type': 'application/json',
           ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ message: userMsg, context }),
+        body: JSON.stringify({ message: userMsg, context, history }),
       })
       const data = await res.json()
       setMessages(m => [...m, { role: 'assistant', text: data.text }])
