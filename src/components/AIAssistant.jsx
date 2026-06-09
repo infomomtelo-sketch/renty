@@ -1,262 +1,274 @@
-import { useState } from 'react'
-import { WORKER_URL } from '../lib/supabase'
-
-export default function AIAssistant({ properties, tenants, leases }) {
-  const [open, setOpen] = useState(false)
-  const [input, setInput] = useState('')
-  const [messages, setMessages] = useState([
-    { role: 'assistant', text: 'Hi! I\'m your Renty AI assistant. Ask me anything about your properties, tenants, or leases.' }
-  ])
-  const [loading, setLoading] = useState(false)
-  const [sendingEmail, setSendingEmail] = useState(false)
-  const [emailStatus, setEmailStatus] = useState(null) // { sent, total, errors }
-
-  const context = { properties, tenants, leases }
-
-  // Extract tenant emails from the last assistant message that looks like drafted notices
-  function extractEmailsFromContext() {
-    // Build a map of tenant name -> email from the tenants prop
-    const emailMap = {}
-    if (tenants) {
-      tenants.forEach(t => {
-        if (t.email) {
-          const name = `${t.first_name || ''} ${t.last_name || ''}`.trim().toLowerCase()
-          emailMap[name] = t.email
-        }
-      })
-    }
-    return emailMap
-  }
-
-  // Find the last assistant message and extract subject + body per tenant
-  function parseLastDraft() {
-    const lastAssistant = [...messages].reverse().find(m => m.role === 'assistant')
-    if (!lastAssistant) return null
-
-    const text = lastAssistant.text
-    const emailMap = extractEmailsFromContext()
-
-    // Try to match tenant names in the draft to their emails
-    const drafts = []
-    for (const [name, email] of Object.entries(emailMap)) {
-      // Check if this tenant appears in the draft
-      const firstName = name.split(' ')[0]
-      if (text.toLowerCase().includes(firstName.toLowerCase())) {
-        // Extract subject line if present
-        const subjectMatch = text.match(/Subject:\s*(.+)/i)
-        const subject = subjectMatch ? subjectMatch[1].trim() : 'Message from your landlord'
-        drafts.push({ email, subject, body: text })
-      }
-    }
-
-    // Fallback: if no tenant name matched but we have tenants with emails, send to all
-    if (drafts.length === 0 && Object.keys(emailMap).length > 0) {
-      const subjectMatch = text.match(/Subject:\s*(.+)/i)
-      const subject = subjectMatch ? subjectMatch[1].trim() : 'Message from your landlord'
-      for (const email of Object.values(emailMap)) {
-        drafts.push({ email, subject, body: text })
-      }
-    }
-
-    return drafts.length > 0 ? drafts : null
-  }
-
-  async function sendMessage() {
-    if (!input.trim() || loading) return
-    const userMsg = input.trim()
-    setInput('')
-    setEmailStatus(null)
-    setMessages(m => [...m, { role: 'user', text: userMsg }])
-    setLoading(true)
-
-    try {
-      const token = localStorage.getItem('sb-token') || sessionStorage.getItem('sb-token')
-      const res = await fetch(`${WORKER_URL}/api/assistant`, {
-        method: 'POST',
+export default {
+  async fetch(request, env) {
+    if (request.method === 'OPTIONS') {
+      return new Response(null, {
         headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
         },
-        body: JSON.stringify({ message: userMsg, context }),
       })
-      const data = await res.json()
-      setMessages(m => [...m, { role: 'assistant', text: data.text }])
-    } catch (err) {
-      setMessages(m => [...m, { role: 'assistant', text: 'Sorry, something went wrong. Try again.' }])
-    }
-    setLoading(false)
-  }
-
-  async function handleSendEmails() {
-    const drafts = parseLastDraft()
-    if (!drafts || drafts.length === 0) {
-      setEmailStatus({ error: 'No tenant emails found. Make sure tenants have email addresses saved.' })
-      return
     }
 
-    setSendingEmail(true)
-    setEmailStatus(null)
+    const url = new URL(request.url)
+    const path = url.pathname
+    let response
 
     try {
-      const token = localStorage.getItem('sb-token') || sessionStorage.getItem('sb-token')
+      if (path === '/api/health') {
+        response = Response.json({ status: 'ok' })
+      }
+      else if (path === '/api/checkout' && request.method === 'POST') {
+        response = await handleCheckout(request, env)
+      }
+      else if (path === '/api/billing-portal' && request.method === 'POST') {
+        response = await handleBillingPortal(request, env)
+      }
+      else if (path === '/api/webhooks/stripe' && request.method === 'POST') {
+        response = await handleStripeWebhook(request, env)
+      }
+      else if (path === '/api/auth/user' && request.method === 'GET') {
+        response = await handleGetUser(request, env)
+      }
+      else if (path === '/api/assistant' && request.method === 'POST') {
+        response = await handleAssistant(request, env)
+      }
+      else if (path === '/api/send-email' && request.method === 'POST') {
+        response = await handleSendEmail(request, env)
+      }
+      else {
+        response = Response.json({ error: 'Not found' }, { status: 404 })
+      }
+    } catch (err) {
+      response = Response.json({ error: err.message }, { status: 500 })
+    }
 
-      const res = await fetch(`${WORKER_URL}/api/send-email`, {
-        method: 'POST',
+    const headers = new Headers(response.headers)
+    headers.set('Access-Control-Allow-Origin', '*')
+    headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+    headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    })
+  }
+}
+
+async function handleSendEmail(request, env) {
+  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+  if (!token) return Response.json({ error: 'Missing token' }, { status: 401 })
+
+  const { to, subject, body } = await request.json()
+
+  if (!to || !subject || !body) {
+    return Response.json({ error: 'to, subject, and body are required' }, { status: 400 })
+  }
+
+  const recipients = Array.isArray(to) ? to : [to]
+  const results = []
+
+  for (const email of recipients) {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'Renty <contact@rentyapp.net>',
+        to: email,
+        subject: subject,
+        text: body,
+        html: `<div style="font-family:sans-serif;max-width:600px;margin:auto;padding:24px;color:#222;">
+          <img src="https://rentyapp.net/logo.png" alt="Renty" style="height:32px;margin-bottom:24px;" onerror="this.style.display='none'" />
+          <div style="white-space:pre-line;line-height:1.6;">${body.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+          <hr style="margin-top:32px;border:none;border-top:1px solid #eee;" />
+          <p style="font-size:12px;color:#999;">Sent via Renty · rentyapp.net</p>
+        </div>`,
+      }),
+    })
+
+    const data = await res.json()
+    if (!res.ok) {
+      results.push({ email, success: false, error: data.message || 'Failed to send' })
+    } else {
+      results.push({ email, success: true, id: data.id })
+    }
+  }
+
+  const allSuccess = results.every(r => r.success)
+  const anySuccess = results.some(r => r.success)
+
+  return Response.json(
+    { results, sent: results.filter(r => r.success).length, total: results.length },
+    { status: allSuccess ? 200 : anySuccess ? 207 : 500 }
+  )
+}
+
+async function handleGetUser(request, env) {
+  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+  if (!token) return Response.json({ error: 'Missing token' }, { status: 401 })
+
+  const res = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, {
+    headers: {
+      'apikey': env.SUPABASE_SERVICE_KEY,
+      'Authorization': `Bearer ${token}`,
+    },
+  })
+  const data = await res.json()
+  return Response.json(data, { status: res.status })
+}
+
+async function handleCheckout(request, env) {
+  const { userId, email } = await request.json()
+  if (!userId) return Response.json({ error: 'userId required' }, { status: 400 })
+
+  const params = new URLSearchParams({
+    'mode': 'subscription',
+    'line_items[0][price]': env.STRIPE_PRICE_ID,
+    'line_items[0][quantity]': '1',
+    'subscription_data[trial_period_days]': '7',
+    'client_reference_id': userId,
+    'success_url': 'https://rentyapp.net/dashboard?success=true',
+    'cancel_url': 'https://rentyapp.net/pricing',
+  })
+
+  if (email) params.set('customer_email', email)
+
+  const res = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${env.STRIPE_SECRET_KEY}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: params.toString(),
+  })
+
+  const data = await res.json()
+  return Response.json(data, { status: res.status })
+}
+
+async function handleBillingPortal(request, env) {
+  const { customerId } = await request.json()
+  if (!customerId) return Response.json({ error: 'customerId required' }, { status: 400 })
+
+  const params = new URLSearchParams({
+    'customer': customerId,
+    'return_url': 'https://rentyapp.net/account',
+  })
+
+  const res = await fetch('https://api.stripe.com/v1/billing_portal/sessions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${env.STRIPE_SECRET_KEY}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: params.toString(),
+  })
+
+  const data = await res.json()
+  return Response.json(data, { status: res.status })
+}
+
+async function handleStripeWebhook(request, env) {
+  const body = await request.text()
+  const event = JSON.parse(body)
+
+  switch (event.type) {
+    case 'checkout.session.completed': {
+      const session = event.data.object
+      const userId = session.client_reference_id
+      const customerId = session.customer
+
+      await fetch(`${env.SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}`, {
+        method: 'PATCH',
         headers: {
+          'apikey': env.SUPABASE_SERVICE_KEY,
+          'Authorization': `Bearer ${env.SUPABASE_SERVICE_KEY}`,
           'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          to: drafts.map(d => d.email),
-          subject: drafts[0].subject,
-          body: drafts[0].body,
+          stripe_customer_id: customerId,
+          subscription_status: 'active',
         }),
       })
-
-      const data = await res.json()
-      setEmailStatus({ sent: data.sent, total: data.total, results: data.results })
-    } catch (err) {
-      setEmailStatus({ error: 'Failed to send. Check your connection and try again.' })
+      break
     }
+    case 'customer.subscription.deleted': {
+      const subscription = event.data.object
+      const customerId = subscription.customer
 
-    setSendingEmail(false)
+      await fetch(`${env.SUPABASE_URL}/rest/v1/profiles?stripe_customer_id=eq.${customerId}`, {
+        method: 'PATCH',
+        headers: {
+          'apikey': env.SUPABASE_SERVICE_KEY,
+          'Authorization': `Bearer ${env.SUPABASE_SERVICE_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ subscription_status: 'canceled' }),
+      })
+      break
+    }
   }
 
-  // Show send button if the last message is from assistant and looks like a draft
-  const lastMsg = messages[messages.length - 1]
-  const showSendButton = !loading && lastMsg?.role === 'assistant' &&
-    (lastMsg.text.toLowerCase().includes('subject:') ||
-     lastMsg.text.toLowerCase().includes('invoice') ||
-     lastMsg.text.toLowerCase().includes('notice') ||
-     lastMsg.text.toLowerCase().includes('reminder'))
+  return Response.json({ received: true })
+}
 
-  return (
-    <>
-      <button
-        onClick={() => setOpen(!open)}
-        style={{
-          position: 'fixed',
-          bottom: '1.5rem',
-          right: '1.5rem',
-          width: '56px',
-          height: '56px',
-          borderRadius: '50%',
-          background: '#000',
-          color: '#fff',
-          border: 'none',
-          cursor: 'pointer',
-          fontSize: '1.5rem',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-          zIndex: 1000,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        {open ? '✕' : '🤖'}
-      </button>
+async function handleAssistant(request, env) {
+  const { message, context } = await request.json()
 
-      {open && (
-        <div style={{
-          position: 'fixed',
-          bottom: '5rem',
-          right: '1.5rem',
-          width: '320px',
-          maxHeight: '520px',
-          background: '#fff',
-          borderRadius: '12px',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
-          display: 'flex',
-          flexDirection: 'column',
-          zIndex: 1000,
-          border: '1px solid #eee',
-        }}>
-          <div style={{ padding: '1rem', borderBottom: '1px solid #eee', fontWeight: '600', fontSize: '0.95rem', background: '#000', color: '#fff', borderRadius: '12px 12px 0 0' }}>
-            🤖 Renty AI Assistant
-          </div>
+  const systemPrompt = `You are Renty AI — a helpful property management assistant for independent landlords.
 
-          <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '320px' }}>
-            {messages.map((m, i) => (
-              <div key={i} style={{
-                padding: '0.75rem',
-                borderRadius: '8px',
-                fontSize: '0.85rem',
-                lineHeight: '1.5',
-                background: m.role === 'user' ? '#000' : '#f5f5f5',
-                color: m.role === 'user' ? '#fff' : '#333',
-                alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
-                maxWidth: '85%',
-                whiteSpace: 'pre-wrap',
-              }}>
-                {m.text}
-              </div>
-            ))}
-            {loading && (
-              <div style={{ padding: '0.75rem', borderRadius: '8px', fontSize: '0.85rem', background: '#f5f5f5', color: '#666', alignSelf: 'flex-start' }}>
-                Thinking...
-              </div>
-            )}
-          </div>
+You have access to this landlord's data:
+${JSON.stringify(context, null, 2)}
 
-          {/* Send Email Button — appears after a draft */}
-          {showSendButton && (
-            <div style={{ padding: '0.75rem 1rem', borderTop: '1px solid #eee', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <button
-                onClick={handleSendEmails}
-                disabled={sendingEmail}
-                style={{
-                  width: '100%',
-                  padding: '0.6rem',
-                  background: sendingEmail ? '#666' : '#16a34a',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: sendingEmail ? 'not-allowed' : 'pointer',
-                  fontSize: '0.85rem',
-                  fontWeight: '600',
-                }}
-              >
-                {sendingEmail ? 'Sending...' : '📧 Send to Tenants'}
-              </button>
-              {emailStatus && (
-                <div style={{
-                  fontSize: '0.78rem',
-                  padding: '0.5rem',
-                  borderRadius: '6px',
-                  background: emailStatus.error ? '#fee2e2' : '#dcfce7',
-                  color: emailStatus.error ? '#b91c1c' : '#15803d',
-                }}>
-                  {emailStatus.error
-                    ? `⚠️ ${emailStatus.error}`
-                    : `✅ Sent ${emailStatus.sent} of ${emailStatus.total} emails`
-                  }
-                </div>
-              )}
-            </div>
-          )}
+Help them manage their properties, tenants, and leases. You can:
+- Draft rent invoices, reminders, and notices
+- Write lease violation notices
+- Draft inspection notices
+- Send emails to tenants (the app will handle actual delivery)
+- Calculate income and expenses
+- Answer questions about their tenants and leases
+- Generate professional landlord communications
+- Provide California rental law guidance
 
-          <div style={{ padding: '0.75rem', borderTop: '1px solid #eee', display: 'flex', gap: '0.5rem' }}>
-            <input
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && sendMessage()}
-              placeholder="Ask about your properties..."
-              style={{ flex: 1, padding: '0.5rem 0.75rem', borderRadius: '6px', border: '1px solid #ccc', fontSize: '0.85rem', outline: 'none' }}
-            />
-            <button
-              onClick={sendMessage}
-              disabled={loading || !input.trim()}
-              style={{ padding: '0.5rem 0.75rem', background: '#000', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}
-            >
-              Send
-            </button>
-          </div>
+IMPORTANT — When asked to send or draft any communication to tenants:
+1. Always draft the full message with a clear Subject: line first
+2. Format it professionally with the tenant name, property, and relevant details
+3. End your response with exactly this line so the app can trigger sending:
+   READY_TO_SEND
+4. Never say you cannot send emails — the app handles delivery, you just draft the message
 
-          <div style={{ padding: '0.5rem 1rem', borderTop: '1px solid #eee', fontSize: '0.75rem', color: '#999', textAlign: 'center' }}>
-            Try: "Send tenants a June invoice"
-          </div>
-        </div>
-      )}
-    </>
-  )
+Always be professional, concise, and helpful.`
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': env.ANTHROPIC_API_KEY,
+      'anthropic-version': '2023-06-01',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 2048,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: message }],
+    }),
+  })
+
+  const data = await res.json()
+
+  if (!res.ok) {
+    return Response.json({ error: data }, { status: 500 })
+  }
+
+  const text = data.content[0].text
+  const readyToSend = text.includes('READY_TO_SEND')
+
+  return Response.json({
+    text: text.replace('READY_TO_SEND', '').trim(),
+    readyToSend,
+  })
 }
