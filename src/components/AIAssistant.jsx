@@ -47,7 +47,7 @@ export default function AIAssistant({ properties, tenants, leases }) {
     setLoading(true)
 
     try {
-      const token = localStorage.getItem('sb-token') || sessionStorage.getItem('sb-token')
+      const { data: { session } } = await supabase.auth.getSession() const token = session?.access_token
       const res = await fetch(`${WORKER_URL}/api/assistant`, {
         method: 'POST',
         headers: {
