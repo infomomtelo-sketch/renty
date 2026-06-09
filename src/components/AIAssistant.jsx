@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { WORKER_URL } from '../lib/supabase'
+import { WORKER_URL, supabase } from '../lib/supabase'
 
 export default function AIAssistant({ properties, tenants, leases }) {
   const [open, setOpen] = useState(false)
@@ -37,6 +37,11 @@ export default function AIAssistant({ properties, tenants, leases }) {
     )
   }
 
+  async function getToken() {
+    const { data: { session } } = await supabase.auth.getSession()
+    return session?.access_token
+  }
+
   async function sendMessage() {
     if (!input.trim() || loading) return
     const userMsg = input.trim()
@@ -47,7 +52,7 @@ export default function AIAssistant({ properties, tenants, leases }) {
     setLoading(true)
 
     try {
-      const { data: { session } } = await supabase.auth.getSession() const token = session?.access_token
+      const token = await getToken()
       const res = await fetch(`${WORKER_URL}/api/assistant`, {
         method: 'POST',
         headers: {
@@ -58,7 +63,6 @@ export default function AIAssistant({ properties, tenants, leases }) {
       })
       const data = await res.json()
       setMessages(m => [...m, { role: 'assistant', text: data.text }])
-      // Show send button if worker flagged it OR if response looks like a draft
       if (data.readyToSend || looksLikeDraft(data.text)) {
         setShowSendButton(true)
       }
@@ -83,7 +87,7 @@ export default function AIAssistant({ properties, tenants, leases }) {
     const subject = getSubjectFromText(body)
 
     try {
-      const token = localStorage.getItem('sb-token') || sessionStorage.getItem('sb-token')
+      const token = await getToken()
       const res = await fetch(`${WORKER_URL}/api/send-email`, {
         method: 'POST',
         headers: {
