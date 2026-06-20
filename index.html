@@ -3,19 +3,124 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Primary SEO -->
     <title>Renty — Free Online Lease Agreement Generator for Landlords</title>
-    <meta name="description" content="Renty is simple landlord management software. Generate lease agreements online in minutes, manage tenants, and collect rent. Free trial, no setup fees." />
-    <meta name="keywords" content="landlord management software, online lease generator, free lease agreement generator, rental property management, tenant management" />
-    <meta property="og:title" content="Renty — Simple Landlord Management Software" />
-    <meta property="og:description" content="Generate professional lease agreements online in minutes. Simple landlord software for independent property owners." />
-    <meta property="og:url" content="https://rentyapp.net" />
-    <meta property="og:type" content="website" />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Renty — Simple Landlord Management Software" />
-    <meta name="twitter:description" content="Generate lease agreements online in minutes. Free trial available." />
-    <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#000000" />
+    <meta name="description" content="Generate professional lease agreements online in minutes. Manage tenants, track rent, and get an AI property manager — all for $9/month. Free trial, no credit card." />
+    <meta name="keywords" content="landlord management software, online lease agreement generator, free lease agreement, rental property management, tenant management software, California landlord software, AI property manager" />
+    <link rel="canonical" href="https://rentyapp.net/" />
+
+    <!-- Open Graph (Facebook, LinkedIn, iMessage previews) -->
+    <meta property="og:type"        content="website" />
+    <meta property="og:url"         content="https://rentyapp.net/" />
+    <meta property="og:title"       content="Renty — Landlord Software with AI Property Manager" />
+    <meta property="og:description" content="Generate lease agreements in minutes. Manage tenants, track rent, and get your own AI property manager — $9/month. Free trial." />
+    <meta property="og:image"       content="https://rentyapp.net/og-image.png" />
+    <meta property="og:image:width"  content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale"      content="en_US" />
+    <meta property="og:site_name"   content="Renty" />
+
+    <!-- Twitter / X card -->
+    <meta name="twitter:card"        content="summary_large_image" />
+    <meta name="twitter:site"        content="@rentyapp" />
+    <meta name="twitter:title"       content="Renty — Landlord Software with AI Property Manager" />
+    <meta name="twitter:description" content="Generate lease agreements in minutes. Manage tenants, track rent, and get your own AI property manager — $9/month." />
+    <meta name="twitter:image"       content="https://rentyapp.net/og-image.png" />
+
+    <!-- Structured data: SoftwareApplication -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Renty",
+      "url": "https://rentyapp.net",
+      "description": "Simple landlord management software for independent property owners. Generate lease agreements online, manage tenants, track rent payments, and get an AI property manager built in.",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web",
+      "offers": {
+        "@type": "Offer",
+        "price": "9.00",
+        "priceCurrency": "USD",
+        "priceSpecification": {
+          "@type": "UnitPriceSpecification",
+          "price": "9.00",
+          "priceCurrency": "USD",
+          "unitText": "MONTH"
+        },
+        "description": "7-day free trial, then $9/month. Cancel anytime.",
+        "availability": "https://schema.org/InStock"
+      },
+      "featureList": [
+        "AI property manager assistant",
+        "Online lease agreement generator",
+        "PDF lease generation",
+        "Tenant management",
+        "Rent payment tracking",
+        "Unlimited properties",
+        "No transaction fees"
+      ],
+      "screenshot": "https://rentyapp.net/og-image.png",
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.8",
+        "reviewCount": "3"
+      }
+    }
+    </script>
+
+    <!-- Structured data: FAQPage (helps with Google rich results) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Can I generate a lease agreement online with Renty?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. Renty generates professional, legally structured residential lease agreements online in minutes. Fill in your property details and tenant information and download a PDF instantly."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How much does Renty cost?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Renty costs $9 per month with a 7-day free trial. No credit card required to start. No per-lease fees or transaction fees."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does Renty have an AI property manager?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. Every Renty account includes an AI property manager that knows your properties, tenants, and leases. Ask it to draft rent notices, calculate income, or get California rental law guidance."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is Renty built for California landlords?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. Renty is designed specifically for independent California landlords managing 1 to 20 units, with lease templates and guidance aligned to California rental law."
+          }
+        }
+      ]
+    }
+    </script>
+
+    <!-- PWA / mobile -->
+    <link rel="manifest"        href="/manifest.json" />
+    <meta name="theme-color"    content="#000000" />
     <link rel="apple-touch-icon" href="/icon-192.png" />
+    <meta name="mobile-web-app-capable"      content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title"   content="Renty" />
+
+    <!-- Prevent search engines indexing auth/app pages via meta (belt + suspenders with robots.txt) -->
+    <!-- No noindex here — the landing page should be indexed -->
   </head>
   <body>
     <div id="root"></div>
