@@ -3,7 +3,10 @@ import { supabase } from '../lib/supabase'
 
 const WORKER = import.meta.env.VITE_WORKER_URL || 'https://rentyapp-worker.infomomtelo.workers.dev'
 
-export default function AIAssistant() {
+// Font shared across the whole panel
+const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+
+export default function AIAssistant({ properties = [], tenants = [], leases = [] }) {
   const [open, setOpen]               = useState(false)
   const [input, setInput]             = useState('')
   const [messages, setMessages]       = useState([
@@ -12,52 +15,30 @@ export default function AIAssistant() {
   const [loading, setLoading]         = useState(false)
   const [emailStatus, setEmailStatus] = useState(null)
   const [sendingEmail, setSendingEmail] = useState(false)
-  const [lastDraft, setLastDraft]     = useState(null) // { subject, body }
+  const [lastDraft, setLastDraft]     = useState(null)
   const [formHtml, setFormHtml]       = useState(null)
-  const [context, setContext]         = useState({})
   const bottomRef = useRef(null)
 
-  // ── Load landlord context once on open ────────────────
-  useEffect(() => {
-    if (!open) return
-    loadContext()
-  }, [open])
-
-  async function loadContext() {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) return
-    const uid = session.user.id
-
-    const [{ data: properties }, { data: tenants }, { data: leases }] = await Promise.all([
-      supabase.from('properties').select('*').eq('user_id', uid),
-      supabase.from('tenants').select('*').eq('user_id', uid),
-      supabase.from('leases').select('*').eq('user_id', uid).eq('status', 'active'),
-    ])
-
-    setContext({ properties: properties || [], tenants: tenants || [], leases: leases || [] })
-  }
+  // Context comes from props — no re-fetch needed, no column mismatch
+  const context = { properties, tenants, leases }
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, loading])
 
-  // ── Derive tenant emails from context ────────────────
   function getTenantRecipients() {
-    return (context.tenants || [])
+    return tenants
       .filter(t => t.email)
-      .map(t => ({ email: t.email, name: `${t.first_name} ${t.last_name}` }))
+      .map(t => ({ email: t.email, name: `${t.first_name || ''} ${t.last_name || ''}`.trim() }))
   }
 
-  // ── Parse subject + body from AI draft ───────────────
   function parseDraft(text) {
     const subjectMatch = text.match(/^Subject:\s*(.+)/im)
     const subject = subjectMatch ? subjectMatch[1].trim() : 'Message from your landlord'
-    // Body = everything after the Subject: line
     const body = text.replace(/^Subject:.*\n?/im, '').trim()
     return { subject, body }
   }
 
-  // ── Send message to AI ─────────────────────────────
   async function sendMessage() {
     const msg = input.trim()
     if (!msg || loading) return
@@ -76,11 +57,10 @@ export default function AIAssistant() {
       const { data: { session } } = await supabase.auth.getSession()
       const token = session?.access_token || ''
 
-      // Build history for multi-turn (exclude the opening system message)
       const history = next
         .filter(m => m.role === 'user' || m.role === 'assistant')
-        .slice(0, -1) // exclude the message we just added (it goes as `message`)
-        .slice(-10)   // keep last 10 turns for context window
+        .slice(0, -1)
+        .slice(-10)
 
       const res = await fetch(`${WORKER}/api/ai-assistant`, {
         method: 'POST',
@@ -97,12 +77,9 @@ export default function AIAssistant() {
       const aiMsg = { role: 'assistant', content: data.text }
       setMessages(prev => [...prev, aiMsg])
 
-      if (data.readyToSend) {
-        setLastDraft(parseDraft(data.text))
-      }
-      if (data.formHtml) {
-        setFormHtml(data.formHtml)
-      }
+      if (data.readyToSend) setLastDraft(parseDraft(data.text))
+      if (data.formHtml)    setFormHtml(data.formHtml)
+
     } catch (err) {
       setMessages(prev => [...prev, {
         role: 'assistant',
@@ -113,7 +90,6 @@ export default function AIAssistant() {
     }
   }
 
-  // ── Send emails to all tenants ─────────────────────
   async function sendEmails() {
     if (!lastDraft || sendingEmail) return
     setSendingEmail(true)
@@ -147,19 +123,12 @@ export default function AIAssistant() {
       if (!res.ok) throw new Error(data.error || 'Send failed')
 
       setEmailStatus({ sent: data.sent, total: data.total, errors: data.errors })
-      if (data.errors?.length) {
-        const failed = data.errors.map(e => e.email).join(', ')
-        setMessages(prev => [...prev, {
-          role: 'assistant',
-          content: `Sent to ${data.sent} of ${data.total} tenants. Failed: ${failed}`,
-        }])
-      } else {
-        setMessages(prev => [...prev, {
-          role: 'assistant',
-          content: `Done — sent to all ${data.sent} tenant${data.sent !== 1 ? 's' : ''}.`,
-        }])
-      }
+      const content = data.errors?.length
+        ? `Sent to ${data.sent} of ${data.total} tenants. Failed: ${data.errors.map(e => e.email).join(', ')}`
+        : `Done — sent to all ${data.sent} tenant${data.sent !== 1 ? 's' : ''}.`
+      setMessages(prev => [...prev, { role: 'assistant', content }])
       setLastDraft(null)
+
     } catch (err) {
       setEmailStatus({ error: err.message })
     } finally {
@@ -171,18 +140,29 @@ export default function AIAssistant() {
 
   return (
     <>
-      {/* FAB */}
+      {/* FAB — raised above bottom nav (nav is ~56px, give 16px gap = 72px) */}
       <button
         onClick={() => setOpen(o => !o)}
-        style={{
-          position: 'fixed', bottom: 80, right: 20, zIndex: 999,
-          width: 52, height: 52, borderRadius: '50%',
-          background: '#111', color: '#fff', border: 'none',
-          fontSize: 22, cursor: 'pointer',
-          boxShadow: '0 4px 16px rgba(0,0,0,0.28)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}
         aria-label="AI Assistant"
+        style={{
+          position: 'fixed',
+          bottom: 72,       // clears the 56px bottom nav + gap
+          right: 20,
+          zIndex: 999,
+          width: 48,
+          height: 48,
+          borderRadius: '50%',
+          background: '#111',
+          color: '#fff',
+          border: 'none',
+          fontSize: 20,
+          cursor: 'pointer',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.28)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontFamily: FONT,
+        }}
       >
         {open ? '✕' : '✦'}
       </button>
@@ -190,54 +170,69 @@ export default function AIAssistant() {
       {/* Chat panel */}
       {open && (
         <div style={{
-          position: 'fixed', bottom: 144, right: 16, zIndex: 998,
+          position: 'fixed',
+          // panel sits above the FAB — FAB bottom 72 + FAB height 48 + 8px gap = 128
+          bottom: 128,
+          right: 16,
+          zIndex: 998,
           width: 'min(360px, calc(100vw - 32px))',
-          maxHeight: '65vh',
-          background: '#fff', borderRadius: 12,
+          maxHeight: '60vh',
+          background: '#fff',
+          borderRadius: 12,
           boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
-          display: 'flex', flexDirection: 'column',
+          display: 'flex',
+          flexDirection: 'column',
           border: '1px solid #e5e5e5',
           overflow: 'hidden',
+          fontFamily: FONT,  // lock font for the entire panel
         }}>
 
           {/* Header */}
           <div style={{
-            padding: '12px 16px', background: '#111', color: '#fff',
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '12px 16px',
+            background: '#111',
+            color: '#fff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
             flexShrink: 0,
           }}>
             <div>
-              <div style={{ fontWeight: 600, fontSize: 14 }}>✦ Renty AI</div>
-              <div style={{ fontSize: 10, opacity: 0.6, marginTop: 1 }}>
-                {context.tenants?.length
-                  ? `${context.tenants.length} tenants · ${context.properties?.length || 0} properties`
-                  : 'Loading your data…'}
+              <div style={{ fontWeight: 600, fontSize: 14, fontFamily: FONT }}>✦ Renty AI</div>
+              <div style={{ fontSize: 10, opacity: 0.6, marginTop: 1, fontFamily: FONT }}>
+                {tenants.length
+                  ? `${tenants.length} tenant${tenants.length !== 1 ? 's' : ''} · ${properties.length} propert${properties.length !== 1 ? 'ies' : 'y'}`
+                  : 'No data loaded yet'}
               </div>
             </div>
             <button
               onClick={() => setOpen(false)}
-              style={{ background: 'none', border: 'none', color: '#fff', fontSize: 18, cursor: 'pointer', lineHeight: 1 }}
+              style={{ background: 'none', border: 'none', color: '#fff', fontSize: 18, cursor: 'pointer', lineHeight: 1, fontFamily: FONT }}
             >✕</button>
           </div>
 
           {/* Messages */}
           <div style={{
-            flex: 1, overflowY: 'auto', padding: '12px 14px',
-            display: 'flex', flexDirection: 'column', gap: 10,
+            flex: 1,
+            overflowY: 'auto',
+            padding: '12px 14px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 10,
           }}>
             {messages.map((m, i) => (
-              <div key={i} style={{
-                display: 'flex',
-                justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start',
-              }}>
+              <div key={i} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
                 <div style={{
                   maxWidth: '85%',
                   padding: '8px 12px',
                   borderRadius: m.role === 'user' ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
                   background: m.role === 'user' ? '#111' : '#f3f4f6',
                   color: m.role === 'user' ? '#fff' : '#111',
-                  fontSize: 13, lineHeight: 1.5,
-                  whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                  fontSize: 13,
+                  lineHeight: 1.5,
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                  fontFamily: FONT,
                 }}>
                   {m.content}
                 </div>
@@ -247,12 +242,15 @@ export default function AIAssistant() {
             {loading && (
               <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
                 <div style={{
-                  padding: '8px 14px', borderRadius: '12px 12px 12px 2px',
-                  background: '#f3f4f6', fontSize: 13, color: '#888',
+                  padding: '8px 14px',
+                  borderRadius: '12px 12px 12px 2px',
+                  background: '#f3f4f6',
+                  fontSize: 13,
+                  color: '#888',
                 }}>
-                  <span style={{ animation: 'pulse 1s infinite' }}>●</span>{' '}
-                  <span style={{ animation: 'pulse 1s infinite .2s' }}>●</span>{' '}
-                  <span style={{ animation: 'pulse 1s infinite .4s' }}>●</span>
+                  <span style={{ animation: 'renty-pulse 1s infinite' }}>●</span>{' '}
+                  <span style={{ animation: 'renty-pulse 1s infinite .2s' }}>●</span>{' '}
+                  <span style={{ animation: 'renty-pulse 1s infinite .4s' }}>●</span>
                 </div>
               </div>
             )}
@@ -266,18 +264,21 @@ export default function AIAssistant() {
                 onClick={sendEmails}
                 disabled={sendingEmail}
                 style={{
-                  width: '100%', padding: '9px 0',
+                  width: '100%',
+                  padding: '9px 0',
                   background: sendingEmail ? '#86efac' : '#16a34a',
-                  color: '#fff', border: 'none', borderRadius: 8,
-                  fontSize: 13, fontWeight: 600, cursor: sendingEmail ? 'default' : 'pointer',
-                  transition: 'background 0.15s',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 8,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: sendingEmail ? 'default' : 'pointer',
+                  fontFamily: FONT,
                 }}
               >
-                {sendingEmail
-                  ? 'Sending…'
-                  : `📧 Send to ${recipientCount} tenant${recipientCount !== 1 ? 's' : ''}`}
+                {sendingEmail ? 'Sending…' : `📧 Send to ${recipientCount} tenant${recipientCount !== 1 ? 's' : ''}`}
               </button>
-              <div style={{ fontSize: 10, color: '#999', textAlign: 'center', marginTop: 4 }}>
+              <div style={{ fontSize: 10, color: '#999', textAlign: 'center', marginTop: 4, fontFamily: FONT }}>
                 Subject: {lastDraft.subject}
               </div>
             </div>
@@ -293,10 +294,16 @@ export default function AIAssistant() {
                   w.document.close()
                 }}
                 style={{
-                  width: '100%', padding: '9px 0',
-                  background: '#1d4ed8', color: '#fff',
-                  border: 'none', borderRadius: 8,
-                  fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                  width: '100%',
+                  padding: '9px 0',
+                  background: '#1d4ed8',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 8,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  fontFamily: FONT,
                 }}
               >
                 📄 Open Form — Fill &amp; Print
@@ -307,10 +314,15 @@ export default function AIAssistant() {
           {/* Email status */}
           {emailStatus && (
             <div style={{
-              margin: '0 14px 10px', padding: '8px 10px', borderRadius: 8, flexShrink: 0,
+              margin: '0 14px 10px',
+              padding: '8px 10px',
+              borderRadius: 8,
+              flexShrink: 0,
               background: emailStatus.error ? '#fef2f2' : '#f0fdf4',
               color: emailStatus.error ? '#b91c1c' : '#15803d',
-              fontSize: 12, fontWeight: 500,
+              fontSize: 12,
+              fontWeight: 500,
+              fontFamily: FONT,
             }}>
               {emailStatus.error
                 ? `⚠ ${emailStatus.error}`
@@ -318,10 +330,14 @@ export default function AIAssistant() {
             </div>
           )}
 
-          {/* Input row */}
+          {/* Input row — explicit styling so browser doesn't override */}
           <div style={{
-            padding: '10px 12px', borderTop: '1px solid #eee',
-            display: 'flex', gap: 8, flexShrink: 0,
+            padding: '10px 12px',
+            borderTop: '1px solid #eee',
+            display: 'flex',
+            gap: 8,
+            flexShrink: 0,
+            background: '#fff',  // ensure white behind input
           }}>
             <input
               value={input}
@@ -330,18 +346,35 @@ export default function AIAssistant() {
               placeholder="Ask or request anything…"
               disabled={loading}
               style={{
-                flex: 1, padding: '8px 10px', borderRadius: 8,
-                border: '1px solid #ddd', fontSize: 13, outline: 'none',
-                background: loading ? '#f9f9f9' : '#fff',
+                flex: 1,
+                padding: '9px 12px',
+                borderRadius: 8,
+                border: '1.5px solid #d1d5db',  // stronger border — visible on all backgrounds
+                fontSize: 13,
+                fontFamily: FONT,
+                outline: 'none',
+                color: '#111',
+                background: '#fff',             // explicit white — prevents system overrides
+                WebkitAppearance: 'none',       // remove iOS default styling
+                appearance: 'none',
+                minWidth: 0,                    // flex item won't overflow
+                boxSizing: 'border-box',
               }}
             />
             <button
               onClick={sendMessage}
               disabled={loading || !input.trim()}
               style={{
-                padding: '8px 14px', background: '#111', color: '#fff',
-                border: 'none', borderRadius: 8, fontSize: 13, cursor: 'pointer',
+                padding: '8px 14px',
+                background: '#111',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 8,
+                fontSize: 13,
+                cursor: 'pointer',
                 opacity: loading || !input.trim() ? 0.4 : 1,
+                fontFamily: FONT,
+                flexShrink: 0,
               }}
             >
               ↑
@@ -350,17 +383,22 @@ export default function AIAssistant() {
 
           {/* Hint */}
           <div style={{
-            padding: '6px 12px 10px', fontSize: 10.5, color: '#bbb', textAlign: 'center', flexShrink: 0,
+            padding: '6px 12px 10px',
+            fontSize: 10.5,
+            color: '#bbb',
+            textAlign: 'center',
+            flexShrink: 0,
+            fontFamily: FONT,
           }}>
-            Try: "Send a late rent notice to all tenants"
+            Try: "Draft a late rent notice for all tenants"
           </div>
         </div>
       )}
 
       <style>{`
-        @keyframes pulse {
+        @keyframes renty-pulse {
           0%, 100% { opacity: 0.3; }
-          50% { opacity: 1; }
+          50%       { opacity: 1; }
         }
       `}</style>
     </>
