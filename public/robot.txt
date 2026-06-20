@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /properties
+Disallow: /tenants
+Disallow: /leases
+Disallow: /account
+Disallow: /auth/
+
+Sitemap: https://rentyapp.net/sitemap.xml
