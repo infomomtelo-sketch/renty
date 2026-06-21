@@ -1,335 +1,189 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import AIAssistant from '../components/AIAssistant'
 
-const WORKER = import.meta.env.VITE_WORKER_URL || 'https://rentyapp-worker.infomomtelo.workers.dev'
 const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
 
-export default function AIAssistant() {
-  const [open, setOpen]                 = useState(false)
-  const [input, setInput]               = useState('')
-  const [messages, setMessages]         = useState([
-    { role: 'assistant', content: "Hi! I'm your Renty assistant. Ask me anything — draft a notice, check a tenant, send a reminder." }
-  ])
-  const [loading, setLoading]           = useState(false)
-  const [emailStatus, setEmailStatus]   = useState(null)
-  const [sendingEmail, setSendingEmail] = useState(false)
-  const [lastDraft, setLastDraft]       = useState(null)
-  const [formHtml, setFormHtml]         = useState(null)
-
-  // ── Data loaded from Supabase ──────────────────────────
+export default function Dashboard() {
+  const navigate = useNavigate()
+  const [user, setUser]             = useState(null)
   const [properties, setProperties] = useState([])
   const [tenants, setTenants]       = useState([])
   const [leases, setLeases]         = useState([])
-  const [dataLoaded, setDataLoaded] = useState(false)
+  const [loading, setLoading]       = useState(true)
 
-  const bottomRef = useRef(null)
-
-  // Fetch landlord data once on mount
   useEffect(() => {
-    async function loadData() {
+    async function load() {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      if (!user) { navigate('/login'); return }
+      setUser(user)
 
       const [{ data: props }, { data: tens }, { data: leas }] = await Promise.all([
         supabase.from('properties').select('*').eq('user_id', user.id),
         supabase.from('tenants').select('*').eq('user_id', user.id),
-        supabase.from('leases').select('*').eq('user_id', user.id),
+        supabase.from('leases').select('*').eq('user_id', user.id).eq('status', 'active'),
       ])
 
       setProperties(props || [])
       setTenants(tens || [])
       setLeases(leas || [])
-      setDataLoaded(true)
-    }
-    loadData()
-  }, [])
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, loading])
-
-  const context = { properties, tenants, leases }
-
-  function getTenantRecipients() {
-    return tenants
-      .filter(t => t.email)
-      .map(t => ({ email: t.email, name: `${t.first_name || ''} ${t.last_name || ''}`.trim() }))
-  }
-
-  function parseDraft(text) {
-    const subjectMatch = text.match(/^Subject:\s*(.+)/im)
-    const subject = subjectMatch ? subjectMatch[1].trim() : 'Message from your landlord'
-    const body = text.replace(/^Subject:.*\n?/im, '').trim()
-    return { subject, body }
-  }
-
-  async function sendMessage() {
-    const msg = input.trim()
-    if (!msg || loading) return
-
-    setInput('')
-    setEmailStatus(null)
-    setLastDraft(null)
-    setFormHtml(null)
-
-    const userMsg = { role: 'user', content: msg }
-    const next = [...messages, userMsg]
-    setMessages(next)
-    setLoading(true)
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const token = session?.access_token || ''
-
-      const history = next
-        .filter(m => m.role === 'user' || m.role === 'assistant')
-        .slice(0, -1)
-        .slice(-10)
-
-      const res = await fetch(`${WORKER}/api/ai-assistant`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ message: msg, history, context }),
-      })
-
-      const data = await res.json()
-      if (!res.ok || data.error) throw new Error(data.error || 'Worker error')
-
-      const aiMsg = { role: 'assistant', content: data.text }
-      setMessages(prev => [...prev, aiMsg])
-
-      if (data.readyToSend) setLastDraft(parseDraft(data.text))
-      if (data.formHtml)    setFormHtml(data.formHtml)
-
-    } catch (err) {
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: 'Something went wrong. Try again.',
-      }])
-    } finally {
       setLoading(false)
     }
-  }
+    load()
+  }, [])
 
-  async function sendEmails() {
-    if (!lastDraft || sendingEmail) return
-    setSendingEmail(true)
-    setEmailStatus(null)
+  const totalRent = leases.reduce((sum, l) => sum + (parseFloat(l.rent_amount) || 0), 0)
 
-    const recipients = getTenantRecipients()
-    if (!recipients.length) {
-      setEmailStatus({ error: 'No tenant emails found. Add emails to your tenants first.' })
-      setSendingEmail(false)
-      return
-    }
+  const stats = [
+    { label: 'Properties', value: properties.length, icon: '🏠', route: '/properties' },
+    { label: 'Tenants',    value: tenants.length,    icon: '👤', route: '/tenants' },
+    { label: 'Leases',     value: leases.length,     icon: '📄', route: '/leases' },
+    { label: 'Monthly Rent', value: `$${totalRent.toLocaleString()}`, icon: '💰', route: '/leases' },
+  ]
 
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const token = session?.access_token || ''
+  const quickActions = [
+    { label: 'Add Property', icon: '🏠', route: '/properties' },
+    { label: 'Add Tenant',   icon: '👤', route: '/tenants' },
+    { label: 'New Lease',    icon: '📝', route: '/leases/new' },
+    { label: 'Applications', icon: '📋', route: '/applications' },
+  ]
 
-      const res = await fetch(`${WORKER}/api/send-email`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          recipients,
-          subject: lastDraft.subject,
-          body: lastDraft.body,
-        }),
-      })
-
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Send failed')
-
-      setEmailStatus({ sent: data.sent, total: data.total, errors: data.errors })
-      const content = data.errors?.length
-        ? `Sent to ${data.sent} of ${data.total} tenants. Failed: ${data.errors.map(e => e.email).join(', ')}`
-        : `Done — sent to all ${data.sent} tenant${data.sent !== 1 ? 's' : ''}.`
-      setMessages(prev => [...prev, { role: 'assistant', content }])
-      setLastDraft(null)
-
-    } catch (err) {
-      setEmailStatus({ error: err.message })
-    } finally {
-      setSendingEmail(false)
-    }
-  }
-
-  const recipientCount = getTenantRecipients().length
-
-  const statusLabel = !dataLoaded
-    ? 'Loading your data…'
-    : tenants.length
-      ? `${tenants.length} tenant${tenants.length !== 1 ? 's' : ''} · ${properties.length} propert${properties.length !== 1 ? 'ies' : 'y'}`
-      : 'No data found — add properties & tenants'
+  if (loading) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontFamily: FONT, color: '#888' }}>
+      Loading…
+    </div>
+  )
 
   return (
-    <>
-      {/* FAB */}
-      <button
-        onClick={() => setOpen(o => !o)}
-        aria-label="AI Assistant"
-        style={{
-          position: 'fixed', bottom: 72, right: 20, zIndex: 999,
-          width: 48, height: 48, borderRadius: '50%',
-          background: '#111', color: '#fff', border: 'none',
-          fontSize: 20, cursor: 'pointer',
-          boxShadow: '0 4px 16px rgba(0,0,0,0.28)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontFamily: FONT,
-        }}
-      >
-        {open ? '✕' : '✦'}
-      </button>
+    <div style={{ fontFamily: FONT, background: '#f8f9fb', minHeight: '100vh', paddingBottom: 80 }}>
 
-      {/* Chat panel */}
-      {open && (
-        <div style={{
-          position: 'fixed', bottom: 128, right: 16, zIndex: 998,
-          width: 'min(360px, calc(100vw - 32px))', maxHeight: '60vh',
-          background: '#fff', borderRadius: 12,
-          boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
-          display: 'flex', flexDirection: 'column',
-          border: '1px solid #e5e5e5', overflow: 'hidden', fontFamily: FONT,
-        }}>
+      {/* Header */}
+      <div style={{ background: '#111', padding: '20px 20px 24px', color: '#fff' }}>
+        <div style={{ fontSize: 11, opacity: 0.5, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>
+          Good {getGreeting()}
+        </div>
+        <div style={{ fontSize: 22, fontWeight: 700 }}>
+          {user?.user_metadata?.full_name?.split(' ')[0] || 'Landlord'} 👋
+        </div>
+        <div style={{ fontSize: 12, opacity: 0.5, marginTop: 4 }}>
+          {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+        </div>
+      </div>
 
-          {/* Header */}
-          <div style={{
-            padding: '12px 16px', background: '#111', color: '#fff',
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0,
-          }}>
-            <div>
-              <div style={{ fontWeight: 600, fontSize: 14, fontFamily: FONT }}>✦ Renty AI</div>
-              <div style={{ fontSize: 10, opacity: 0.6, marginTop: 1, fontFamily: FONT }}>
-                {statusLabel}
-              </div>
-            </div>
-            <button onClick={() => setOpen(false)}
-              style={{ background: 'none', border: 'none', color: '#fff', fontSize: 18, cursor: 'pointer', lineHeight: 1 }}
-            >✕</button>
-          </div>
+      <div style={{ padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: 24 }}>
 
-          {/* Messages */}
-          <div style={{
-            flex: 1, overflowY: 'auto', padding: '12px 14px',
-            display: 'flex', flexDirection: 'column', gap: 10,
-          }}>
-            {messages.map((m, i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
-                <div style={{
-                  maxWidth: '85%', padding: '8px 12px',
-                  borderRadius: m.role === 'user' ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
-                  background: m.role === 'user' ? '#111' : '#f3f4f6',
-                  color: m.role === 'user' ? '#fff' : '#111',
-                  fontSize: 13, lineHeight: 1.5, whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word', fontFamily: FONT,
-                }}>
-                  {m.content}
-                </div>
-              </div>
-            ))}
-
-            {loading && (
-              <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-                <div style={{ padding: '8px 14px', borderRadius: '12px 12px 12px 2px', background: '#f3f4f6', fontSize: 13, color: '#888' }}>
-                  <span style={{ animation: 'renty-pulse 1s infinite' }}>●</span>{' '}
-                  <span style={{ animation: 'renty-pulse 1s infinite .2s' }}>●</span>{' '}
-                  <span style={{ animation: 'renty-pulse 1s infinite .4s' }}>●</span>
-                </div>
-              </div>
-            )}
-            <div ref={bottomRef} />
-          </div>
-
-          {/* Send to tenants button */}
-          {lastDraft && !loading && (
-            <div style={{ padding: '0 14px 10px', flexShrink: 0 }}>
-              <button onClick={sendEmails} disabled={sendingEmail} style={{
-                width: '100%', padding: '9px 0',
-                background: sendingEmail ? '#86efac' : '#16a34a',
-                color: '#fff', border: 'none', borderRadius: 8,
-                fontSize: 13, fontWeight: 600,
-                cursor: sendingEmail ? 'default' : 'pointer', fontFamily: FONT,
-              }}>
-                {sendingEmail ? 'Sending…' : `📧 Send to ${recipientCount} tenant${recipientCount !== 1 ? 's' : ''}`}
-              </button>
-              <div style={{ fontSize: 10, color: '#999', textAlign: 'center', marginTop: 4, fontFamily: FONT }}>
-                Subject: {lastDraft.subject}
-              </div>
-            </div>
-          )}
-
-          {/* Open Form button */}
-          {formHtml && (
-            <div style={{ padding: '0 14px 10px', flexShrink: 0 }}>
-              <button onClick={() => { const w = window.open('', '_blank'); w.document.write(formHtml); w.document.close() }}
-                style={{
-                  width: '100%', padding: '9px 0', background: '#1d4ed8',
-                  color: '#fff', border: 'none', borderRadius: 8,
-                  fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: FONT,
-                }}>
-                📄 Open Form — Fill &amp; Print
-              </button>
-            </div>
-          )}
-
-          {/* Email status */}
-          {emailStatus && (
-            <div style={{
-              margin: '0 14px 10px', padding: '8px 10px', borderRadius: 8, flexShrink: 0,
-              background: emailStatus.error ? '#fef2f2' : '#f0fdf4',
-              color: emailStatus.error ? '#b91c1c' : '#15803d',
-              fontSize: 12, fontWeight: 500, fontFamily: FONT,
-            }}>
-              {emailStatus.error ? `⚠ ${emailStatus.error}` : `✓ Sent ${emailStatus.sent} of ${emailStatus.total}`}
-            </div>
-          )}
-
-          {/* Input row */}
-          <div style={{
-            padding: '10px 12px', borderTop: '1px solid #eee',
-            display: 'flex', gap: 8, flexShrink: 0, background: '#fff',
-          }}>
-            <input
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
-              placeholder="Ask or request anything…"
-              disabled={loading}
+        {/* Stats grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          {stats.map(s => (
+            <div key={s.label} onClick={() => navigate(s.route)}
               style={{
-                flex: 1, padding: '9px 12px', borderRadius: 8,
-                border: '1.5px solid #d1d5db', fontSize: 13, fontFamily: FONT,
-                outline: 'none', color: '#111', background: '#fff',
-                WebkitAppearance: 'none', appearance: 'none',
-                minWidth: 0, boxSizing: 'border-box',
-              }}
-            />
-            <button onClick={sendMessage} disabled={loading || !input.trim()} style={{
-              padding: '8px 14px', background: '#111', color: '#fff',
-              border: 'none', borderRadius: 8, fontSize: 13, cursor: 'pointer',
-              opacity: loading || !input.trim() ? 0.4 : 1,
-              fontFamily: FONT, flexShrink: 0,
-            }}>↑</button>
-          </div>
+                background: '#fff', borderRadius: 12, padding: '16px',
+                boxShadow: '0 1px 4px rgba(0,0,0,0.07)', cursor: 'pointer',
+                border: '1px solid #eee',
+              }}>
+              <div style={{ fontSize: 22, marginBottom: 6 }}>{s.icon}</div>
+              <div style={{ fontSize: 24, fontWeight: 700, color: '#111' }}>{s.value}</div>
+              <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{s.label}</div>
+            </div>
+          ))}
+        </div>
 
-          {/* Hint */}
-          <div style={{ padding: '6px 12px 10px', fontSize: 10.5, color: '#bbb', textAlign: 'center', flexShrink: 0, fontFamily: FONT }}>
-            Try: "Draft a late rent notice for all tenants"
+        {/* Quick actions */}
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#888', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 10 }}>
+            Quick Actions
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            {quickActions.map(a => (
+              <button key={a.label} onClick={() => navigate(a.route)}
+                style={{
+                  background: '#fff', border: '1px solid #eee', borderRadius: 10,
+                  padding: '14px 12px', textAlign: 'left', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  fontSize: 13, fontWeight: 500, color: '#111',
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
+                  fontFamily: FONT,
+                }}>
+                <span style={{ fontSize: 18 }}>{a.icon}</span>
+                {a.label}
+              </button>
+            ))}
           </div>
         </div>
-      )}
 
-      <style>{`
-        @keyframes renty-pulse {
-          0%, 100% { opacity: 0.3; }
-          50%       { opacity: 1; }
-        }
-      `}</style>
-    </>
+        {/* Recent tenants */}
+        {tenants.length > 0 && (
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: '#888', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 10 }}>
+              Recent Tenants
+            </div>
+            <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #eee', overflow: 'hidden' }}>
+              {tenants.slice(0, 4).map((t, i) => (
+                <div key={t.id}
+                  onClick={() => navigate('/tenants')}
+                  style={{
+                    padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12,
+                    borderBottom: i < Math.min(tenants.length, 4) - 1 ? '1px solid #f3f4f6' : 'none',
+                    cursor: 'pointer',
+                  }}>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: '50%', background: '#111',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: '#fff', fontSize: 13, fontWeight: 600, flexShrink: 0,
+                  }}>
+                    {(t.first_name?.[0] || '?')}{(t.last_name?.[0] || '')}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: '#111' }}>
+                      {t.first_name} {t.last_name}
+                    </div>
+                    <div style={{ fontSize: 12, color: '#999', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {t.email || 'No email'}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 18, color: '#ccc' }}>›</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Empty state */}
+        {properties.length === 0 && tenants.length === 0 && (
+          <div style={{
+            background: '#fff', borderRadius: 12, padding: '32px 20px',
+            textAlign: 'center', border: '1px solid #eee',
+          }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>🏠</div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: '#111', marginBottom: 6 }}>
+              Welcome to RentyApp
+            </div>
+            <div style={{ fontSize: 13, color: '#888', marginBottom: 20 }}>
+              Start by adding your first property
+            </div>
+            <button onClick={() => navigate('/properties')}
+              style={{
+                background: '#111', color: '#fff', border: 'none',
+                borderRadius: 8, padding: '10px 24px', fontSize: 14,
+                fontWeight: 600, cursor: 'pointer', fontFamily: FONT,
+              }}>
+              Add Property
+            </button>
+          </div>
+        )}
+
+      </div>
+
+      {/* AI Assistant — receives real data */}
+      <AIAssistant properties={properties} tenants={tenants} leases={leases} />
+    </div>
   )
+}
+
+function getGreeting() {
+  const h = new Date().getHours()
+  if (h < 12) return 'morning'
+  if (h < 17) return 'afternoon'
+  return 'evening'
 }
