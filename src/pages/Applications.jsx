@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase, WORKER_URL } from '../lib/supabase'
+import { supabase } from '../lib/supabase'  const WORKER_URL = import.meta.env.VITE_WORKER_URL || 'https://rentyapp-worker.infomomtelo.workers.dev'
 
 const statusColors = {
   pending: { bg: '#fff8e1', color: '#f59e0b', label: 'Pending' },
