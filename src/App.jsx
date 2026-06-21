@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { supabase } from './lib/supabase'
-
 import Landing from './pages/Landing'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
@@ -16,10 +15,10 @@ import Account from './pages/Account'
 import Apply from './pages/Apply'
 import Privacy from './pages/Privacy'
 import Terms from './pages/Terms'
+import Inspection from './pages/Inspection'
 
 export default function App() {
   const [session, setSession] = useState(undefined)
-
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session))
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -27,9 +26,7 @@ export default function App() {
     })
     return () => subscription.unsubscribe()
   }, [])
-
-  if (session === undefined) return null // loading
-
+  if (session === undefined) return null
   return (
     <BrowserRouter>
       <Routes>
@@ -41,7 +38,6 @@ export default function App() {
         <Route path="/apply/:leaseId" element={<Apply />} />
         <Route path="/privacy" element={<Privacy />} />
         <Route path="/terms" element={<Terms />} />
-
         {/* Protected */}
         <Route path="/dashboard" element={session ? <Dashboard session={session} /> : <Navigate to="/login" />} />
         <Route path="/properties" element={session ? <Properties session={session} /> : <Navigate to="/login" />} />
@@ -50,7 +46,7 @@ export default function App() {
         <Route path="/leases/new" element={session ? <LeaseNew session={session} /> : <Navigate to="/login" />} />
         <Route path="/leases/:id" element={session ? <LeaseView session={session} /> : <Navigate to="/login" />} />
         <Route path="/account" element={session ? <Account session={session} /> : <Navigate to="/login" />} />
-
+        <Route path="/inspect" element={session ? <Inspection session={session} /> : <Navigate to="/login" />} />
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
