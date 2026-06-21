@@ -42,9 +42,9 @@ export default function Dashboard({ session }) {
     || 'Landlord'
 
   const stats = [
-    { label: 'Properties',    value: properties.length,              icon: '🏠', route: '/properties' },
-    { label: 'Tenants',       value: tenants.length,                 icon: '👤', route: '/tenants' },
-    { label: 'Active Leases', value: leases.length,                  icon: '📄', route: '/leases' },
+    { label: 'Properties',    value: properties.length,               icon: '🏠', route: '/properties' },
+    { label: 'Tenants',       value: tenants.length,                  icon: '👤', route: '/tenants' },
+    { label: 'Active Leases', value: leases.length,                   icon: '📄', route: '/leases' },
     { label: 'Monthly Rent',  value: `$${totalRent.toLocaleString()}`, icon: '💰', route: '/leases' },
   ]
 
@@ -53,6 +53,7 @@ export default function Dashboard({ session }) {
     { label: 'Add Tenant',   icon: '👤', route: '/tenants' },
     { label: 'New Lease',    icon: '📝', route: '/leases/new' },
     { label: 'Applications', icon: '📋', route: '/applications' },
+    { label: 'Inspect',      icon: '🔍', route: '/inspect' },
   ]
 
   if (loading) return (
@@ -110,10 +111,12 @@ export default function Dashboard({ session }) {
             {quickActions.map(a => (
               <button key={a.label} onClick={() => navigate(a.route)}
                 style={{
-                  background: '#fff', border: '1px solid #eee', borderRadius: 12,
-                  padding: '14px 12px', textAlign: 'left', cursor: 'pointer',
+                  background: a.label === 'Inspect' ? '#111' : '#fff',
+                  border: a.label === 'Inspect' ? '1px solid #111' : '1px solid #eee',
+                  borderRadius: 12, padding: '14px 12px', textAlign: 'left', cursor: 'pointer',
                   display: 'flex', alignItems: 'center', gap: 10,
-                  fontSize: 13, fontWeight: 500, color: '#111',
+                  fontSize: 13, fontWeight: 500,
+                  color: a.label === 'Inspect' ? '#fff' : '#111',
                   boxShadow: '0 1px 4px rgba(0,0,0,0.05)', fontFamily: FONT,
                 }}>
                 <span style={{ fontSize: 18 }}>{a.icon}</span>
@@ -185,7 +188,6 @@ export default function Dashboard({ session }) {
 
       </div>
 
-      {/* AI Assistant — receives real data */}
       <AIAssistant properties={properties} tenants={tenants} leases={leases} />
     </div>
   )
