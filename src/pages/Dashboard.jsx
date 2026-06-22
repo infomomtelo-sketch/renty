@@ -20,7 +20,7 @@ export default function Dashboard({ session }) {
   const [loading, setLoading]       = useState(true)
 
   useEffect(() => {
-    if (!session?.user) { navigate('/login'); return }
+    if (!session?.user) { navigate('/login', { replace: true }); return }
     async function load() {
       const uid = session.user.id
       const [{ data: props }, { data: tens }, { data: leas }] = await Promise.all([
@@ -42,25 +42,22 @@ export default function Dashboard({ session }) {
     || 'Landlord'
 
   const stats = [
-    { label: 'Properties',    value: properties.length,               icon: '🏠', route: '/properties' },
-    { label: 'Tenants',       value: tenants.length,                  icon: '👤', route: '/tenants' },
-    { label: 'Active Leases', value: leases.length,                   icon: '📄', route: '/leases' },
+    { label: 'Properties',    value: properties.length,                icon: '🏠', route: '/properties' },
+    { label: 'Tenants',       value: tenants.length,                   icon: '👤', route: '/tenants' },
+    { label: 'Active Leases', value: leases.length,                    icon: '📄', route: '/leases' },
     { label: 'Monthly Rent',  value: `$${totalRent.toLocaleString()}`, icon: '💰', route: '/leases' },
   ]
 
+  // Only routes that actually exist
   const quickActions = [
     { label: 'Add Property', icon: '🏠', route: '/properties' },
     { label: 'Add Tenant',   icon: '👤', route: '/tenants' },
     { label: 'New Lease',    icon: '📝', route: '/leases/new' },
-    { label: 'Applications', icon: '📋', route: '/applications' },
-    { label: 'Inspect',      icon: '🔍', route: '/inspect' },
+    { label: 'Inspect',      icon: '🔍', route: '/inspect',   highlight: true },
   ]
 
   if (loading) return (
-    <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      height: '100vh', background: '#f8f9fb', fontFamily: FONT, color: '#888', fontSize: 14,
-    }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#f8f9fb', fontFamily: FONT, color: '#888', fontSize: 14 }}>
       Loading…
     </div>
   )
@@ -70,12 +67,8 @@ export default function Dashboard({ session }) {
 
       {/* Header */}
       <div style={{ background: '#111', padding: '20px 20px 28px', color: '#fff' }}>
-        <div style={{ fontSize: 11, opacity: 0.45, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>
-          Good {getGreeting()}
-        </div>
-        <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: -0.5 }}>
-          {firstName} 👋
-        </div>
+        <div style={{ fontSize: 11, opacity: 0.45, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>Good {getGreeting()}</div>
+        <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: -0.5 }}>{firstName} 👋</div>
         <div style={{ fontSize: 12, opacity: 0.45, marginTop: 4 }}>
           {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
         </div>
@@ -83,15 +76,11 @@ export default function Dashboard({ session }) {
 
       <div style={{ padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: 24 }}>
 
-        {/* Stats grid */}
+        {/* Stats */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           {stats.map(s => (
             <div key={s.label} onClick={() => navigate(s.route)}
-              style={{
-                background: '#fff', borderRadius: 14, padding: '16px 14px',
-                boxShadow: '0 1px 4px rgba(0,0,0,0.06)', cursor: 'pointer',
-                border: '1px solid #eee', transition: 'transform 0.1s',
-              }}
+              style={{ background: '#fff', borderRadius: 14, padding: '16px 14px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', cursor: 'pointer', border: '1px solid #eee', transition: 'transform 0.1s' }}
               onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
               onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
             >
@@ -102,21 +91,19 @@ export default function Dashboard({ session }) {
           ))}
         </div>
 
-        {/* Quick actions */}
+        {/* Quick Actions */}
         <div>
-          <div style={{ fontSize: 11, fontWeight: 600, color: '#aaa', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 10 }}>
-            Quick Actions
-          </div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: '#aaa', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 10 }}>Quick Actions</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             {quickActions.map(a => (
               <button key={a.label} onClick={() => navigate(a.route)}
                 style={{
-                  background: a.label === 'Inspect' ? '#111' : '#fff',
-                  border: a.label === 'Inspect' ? '1px solid #111' : '1px solid #eee',
+                  background: a.highlight ? '#111' : '#fff',
+                  border: `1px solid ${a.highlight ? '#111' : '#eee'}`,
                   borderRadius: 12, padding: '14px 12px', textAlign: 'left', cursor: 'pointer',
                   display: 'flex', alignItems: 'center', gap: 10,
                   fontSize: 13, fontWeight: 500,
-                  color: a.label === 'Inspect' ? '#fff' : '#111',
+                  color: a.highlight ? '#fff' : '#111',
                   boxShadow: '0 1px 4px rgba(0,0,0,0.05)', fontFamily: FONT,
                 }}>
                 <span style={{ fontSize: 18 }}>{a.icon}</span>
@@ -126,34 +113,20 @@ export default function Dashboard({ session }) {
           </div>
         </div>
 
-        {/* Recent tenants */}
+        {/* Recent Tenants */}
         {tenants.length > 0 && (
           <div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: '#aaa', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 10 }}>
-              Recent Tenants
-            </div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: '#aaa', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 10 }}>Recent Tenants</div>
             <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #eee', overflow: 'hidden' }}>
               {tenants.slice(0, 5).map((t, i) => (
                 <div key={t.id} onClick={() => navigate('/tenants')}
-                  style={{
-                    padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12,
-                    borderBottom: i < Math.min(tenants.length, 5) - 1 ? '1px solid #f3f4f6' : 'none',
-                    cursor: 'pointer',
-                  }}>
-                  <div style={{
-                    width: 36, height: 36, borderRadius: '50%', background: '#111',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: '#fff', fontSize: 13, fontWeight: 600, flexShrink: 0,
-                  }}>
+                  style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, borderBottom: i < Math.min(tenants.length, 5) - 1 ? '1px solid #f3f4f6' : 'none', cursor: 'pointer' }}>
+                  <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 13, fontWeight: 600, flexShrink: 0 }}>
                     {(t.first_name?.[0] || '?').toUpperCase()}{(t.last_name?.[0] || '').toUpperCase()}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: '#111' }}>
-                      {t.first_name} {t.last_name}
-                    </div>
-                    <div style={{ fontSize: 12, color: '#999', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {t.email || 'No email on file'}
-                    </div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: '#111' }}>{t.first_name} {t.last_name}</div>
+                    <div style={{ fontSize: 12, color: '#999', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.email || 'No email on file'}</div>
                   </div>
                   <div style={{ fontSize: 18, color: '#ccc' }}>›</div>
                 </div>
@@ -164,23 +137,12 @@ export default function Dashboard({ session }) {
 
         {/* Empty state */}
         {properties.length === 0 && tenants.length === 0 && (
-          <div style={{
-            background: '#fff', borderRadius: 14, padding: '40px 20px',
-            textAlign: 'center', border: '1px solid #eee',
-          }}>
+          <div style={{ background: '#fff', borderRadius: 14, padding: '40px 20px', textAlign: 'center', border: '1px solid #eee' }}>
             <div style={{ fontSize: 44, marginBottom: 14 }}>🏠</div>
-            <div style={{ fontSize: 17, fontWeight: 700, color: '#111', marginBottom: 8 }}>
-              Welcome to RentyApp
-            </div>
-            <div style={{ fontSize: 13, color: '#888', marginBottom: 24, lineHeight: 1.6 }}>
-              Start by adding your first property,<br/>then add tenants and leases.
-            </div>
+            <div style={{ fontSize: 17, fontWeight: 700, color: '#111', marginBottom: 8 }}>Welcome to RentyApp</div>
+            <div style={{ fontSize: 13, color: '#888', marginBottom: 24, lineHeight: 1.6 }}>Start by adding your first property,<br/>then add tenants and leases.</div>
             <button onClick={() => navigate('/properties')}
-              style={{
-                background: '#111', color: '#fff', border: 'none',
-                borderRadius: 10, padding: '12px 28px', fontSize: 14,
-                fontWeight: 600, cursor: 'pointer', fontFamily: FONT,
-              }}>
+              style={{ background: '#111', color: '#fff', border: 'none', borderRadius: 10, padding: '12px 28px', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: FONT }}>
               Add Your First Property
             </button>
           </div>
