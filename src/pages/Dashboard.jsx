@@ -24,9 +24,9 @@ export default function Dashboard({ session }) {
     async function load() {
       const uid = session.user.id
       const [{ data: props }, { data: tens }, { data: leas }] = await Promise.all([
-        supabase.from('properties').select('*').eq('user_id', uid),
-        supabase.from('tenants').select('*').eq('user_id', uid),
-        supabase.from('leases').select('*').eq('user_id', uid).eq('status', 'active'),
+        supabase.from('properties').select('*').eq('landlord_id', uid),
+        supabase.from('tenants').select('*').eq('landlord_id', uid),
+        supabase.from('leases').select('*').eq('landlord_id', uid).eq('status', 'active'),
       ])
       setProperties(props || [])
       setTenants(tens || [])
@@ -48,7 +48,6 @@ export default function Dashboard({ session }) {
     { label: 'Monthly Rent',  value: `$${totalRent.toLocaleString()}`, icon: '💰', route: '/leases' },
   ]
 
-  // Only routes that actually exist
   const quickActions = [
     { label: 'Add Property', icon: '🏠', route: '/properties' },
     { label: 'Add Tenant',   icon: '👤', route: '/tenants' },
