@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'  const WORKER_URL = import.meta.env.VITE_WORKER_URL || 'https://rentyapp-worker.infomomtelo.workers.dev'
+import { supabase } from '../lib/supabase'
+
+const WORKER_URL = import.meta.env.VITE_WORKER_URL || 'https://rentyapp-worker.infomomtelo.workers.dev'
 
 const statusColors = {
   pending: { bg: '#fff8e1', color: '#f59e0b', label: 'Pending' },
@@ -7,7 +9,7 @@ const statusColors = {
   denied: { bg: '#fce4ec', color: '#dc2626', label: 'Denied' },
 }
 
-export default function Applications() {
+export default function Applications({ session }) {
   const [applications, setApplications] = useState([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState(null)
@@ -16,14 +18,15 @@ export default function Applications() {
   const [statusUpdating, setStatusUpdating] = useState(false)
 
   useEffect(() => {
-    fetchApplications()
-  }, [])
+    if (session?.user) fetchApplications()
+  }, [session])
 
   async function fetchApplications() {
     setLoading(true)
     const { data } = await supabase
       .from('applications')
       .select('*, properties(address, city, bedrooms, bathrooms, rent)')
+      .eq('landlord_id', session.user.id)
       .order('created_at', { ascending: false })
     setApplications(data || [])
     setLoading(false)
@@ -49,11 +52,7 @@ export default function Applications() {
       const data = await res.json()
       const summary = data.text
       setAiSummary(summary)
-      // Save to DB
-      await supabase
-        .from('applications')
-        .update({ ai_summary: summary })
-        .eq('id', app.id)
+      await supabase.from('applications').update({ ai_summary: summary }).eq('id', app.id)
     } catch (err) {
       setAiSummary('Could not generate summary. Try again.')
     }
@@ -109,7 +108,6 @@ export default function Applications() {
         </div>
       )}
 
-      {/* Detail Panel */}
       {selected && (
         <div style={{
           position: 'fixed', top: 0, right: 0, bottom: 0, width: '100%', maxWidth: '420px',
@@ -126,7 +124,6 @@ export default function Applications() {
             <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', fontSize: '1.25rem', cursor: 'pointer', color: '#999', padding: '0' }}>✕</button>
           </div>
 
-          {/* AI Summary */}
           <div style={{ background: '#000', color: '#fff', borderRadius: '10px', padding: '1rem', marginBottom: '1.5rem' }}>
             <div style={{ fontSize: '0.75rem', fontWeight: '600', letterSpacing: '0.06em', textTransform: 'uppercase', color: '#aaa', marginBottom: '0.5rem' }}>
               🤖 AI Summary
@@ -140,7 +137,6 @@ export default function Applications() {
             )}
           </div>
 
-          {/* Details */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem' }}>
             <Row label="Email" value={selected.email} />
             <Row label="Phone" value={selected.phone || '—'} />
@@ -154,7 +150,6 @@ export default function Applications() {
             {selected.message && <Row label="Message" value={selected.message} />}
           </div>
 
-          {/* Income Ratio */}
           {selected.monthly_income && selected.properties?.rent && (
             <div style={{ background: '#f5f5f5', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem' }}>
               <div style={{ fontSize: '0.8rem', color: '#666', marginBottom: '0.25rem' }}>Income-to-Rent Ratio</div>
@@ -169,21 +164,14 @@ export default function Applications() {
             </div>
           )}
 
-          {/* Actions */}
           {selected.status === 'pending' && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-              <button
-                onClick={() => updateStatus(selected.id, 'approved')}
-                disabled={statusUpdating}
-                style={{ padding: '0.75rem', background: '#16a34a', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.9rem' }}
-              >
+              <button onClick={() => updateStatus(selected.id, 'approved')} disabled={statusUpdating}
+                style={{ padding: '0.75rem', background: '#16a34a', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.9rem' }}>
                 ✓ Approve
               </button>
-              <button
-                onClick={() => updateStatus(selected.id, 'denied')}
-                disabled={statusUpdating}
-                style={{ padding: '0.75rem', background: '#fff', color: '#dc2626', border: '1px solid #dc2626', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.9rem' }}
-              >
+              <button onClick={() => updateStatus(selected.id, 'denied')} disabled={statusUpdating}
+                style={{ padding: '0.75rem', background: '#fff', color: '#dc2626', border: '1px solid #dc2626', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.9rem' }}>
                 ✕ Deny
               </button>
             </div>
@@ -191,10 +179,8 @@ export default function Applications() {
           {selected.status !== 'pending' && (
             <div style={{ display: 'flex', gap: '0.75rem' }}>
               <StatusBadge status={selected.status} />
-              <button
-                onClick={() => updateStatus(selected.id, 'pending')}
-                style={{ background: 'none', border: '1px solid #ddd', borderRadius: '6px', padding: '0.4rem 0.75rem', cursor: 'pointer', fontSize: '0.8rem', color: '#666' }}
-              >
+              <button onClick={() => updateStatus(selected.id, 'pending')}
+                style={{ background: 'none', border: '1px solid #ddd', borderRadius: '6px', padding: '0.4rem 0.75rem', cursor: 'pointer', fontSize: '0.8rem', color: '#666' }}>
                 Reset to Pending
               </button>
             </div>
@@ -212,14 +198,8 @@ export default function Applications() {
 function AppCard({ app, onSelect, onStatus }) {
   const s = statusColors[app.status] || statusColors.pending
   return (
-    <div
-      onClick={() => onSelect(app)}
-      style={{
-        background: '#fff', border: '1px solid #eee', borderRadius: '10px',
-        padding: '1rem 1.25rem', cursor: 'pointer', display: 'flex',
-        justifyContent: 'space-between', alignItems: 'center',
-        transition: 'box-shadow 0.15s',
-      }}
+    <div onClick={() => onSelect(app)}
+      style={{ background: '#fff', border: '1px solid #eee', borderRadius: '10px', padding: '1rem 1.25rem', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'box-shadow 0.15s' }}
       onMouseEnter={e => e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.08)'}
       onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
     >
@@ -247,10 +227,7 @@ function AppCard({ app, onSelect, onStatus }) {
 function StatusBadge({ status }) {
   const s = statusColors[status] || statusColors.pending
   return (
-    <span style={{
-      background: s.bg, color: s.color, padding: '0.2rem 0.6rem',
-      borderRadius: '20px', fontSize: '0.75rem', fontWeight: '600',
-    }}>
+    <span style={{ background: s.bg, color: s.color, padding: '0.2rem 0.6rem', borderRadius: '20px', fontSize: '0.75rem', fontWeight: '600' }}>
       {s.label}
     </span>
   )
