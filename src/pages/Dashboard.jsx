@@ -52,7 +52,7 @@ export default function Dashboard({ session }) {
     { label: 'Add Property', icon: '🏠', route: '/properties' },
     { label: 'Add Tenant',   icon: '👤', route: '/tenants' },
     { label: 'New Lease',    icon: '📝', route: '/leases/new' },
-    { label: 'Inspect',      icon: '🔍', route: '/inspect',   highlight: true },
+    { label: 'Inspect',      icon: '🔍', route: '/inspect', highlight: true },
   ]
 
   if (loading) return (
@@ -66,10 +66,20 @@ export default function Dashboard({ session }) {
 
       {/* Header */}
       <div style={{ background: '#111', padding: '20px 20px 28px', color: '#fff' }}>
-        <div style={{ fontSize: 11, opacity: 0.45, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>Good {getGreeting()}</div>
-        <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: -0.5 }}>{firstName} 👋</div>
-        <div style={{ fontSize: 12, opacity: 0.45, marginTop: 4 }}>
-          {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <div style={{ fontSize: 11, opacity: 0.45, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>Good {getGreeting()}</div>
+            <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: -0.5 }}>{firstName} 👋</div>
+            <div style={{ fontSize: 12, opacity: 0.45, marginTop: 4 }}>
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+            </div>
+          </div>
+          <button
+            onClick={() => supabase.auth.signOut()}
+            style={{ background: 'none', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, color: 'rgba(255,255,255,0.6)', fontSize: 12, padding: '6px 14px', cursor: 'pointer', fontFamily: FONT, marginTop: 4 }}
+          >
+            Sign out
+          </button>
         </div>
       </div>
 
