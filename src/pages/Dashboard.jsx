@@ -21,18 +21,32 @@ export default function Dashboard({ session }) {
 
   useEffect(() => {
     if (!session?.user) { navigate('/login', { replace: true }); return }
+
     async function load() {
       const uid = session.user.id
-      const [{ data: props }, { data: tens }, { data: leas }] = await Promise.all([
+
+      const [{ data: props }, { data: tens }] = await Promise.all([
         supabase.from('properties').select('*').eq('landlord_id', uid),
         supabase.from('tenants').select('*').eq('landlord_id', uid),
-        supabase.from('leases').select('*').eq('landlord_id', uid).eq('status', 'active'),
       ])
+
+      const propIds = (props || []).map(p => p.id)
+      let leasData = []
+      if (propIds.length > 0) {
+        const { data } = await supabase
+          .from('leases')
+          .select('*')
+          .in('property_id', propIds)
+          .eq('status', 'active')
+        leasData = data || []
+      }
+
       setProperties(props || [])
       setTenants(tens || [])
-      setLeases(leas || [])
+      setLeases(leasData)
       setLoading(false)
     }
+
     load()
   }, [session])
 
