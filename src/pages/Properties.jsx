@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
+const STRIPE_LINK = 'https://buy.stripe.com/3cIaEW3LYcNoeYbabQg360j'
+const FREE_LIMIT = 2
+
 const PROPERTY_GRADIENTS = [
   'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
   'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
@@ -14,6 +17,8 @@ const PROPERTY_GRADIENTS = [
 export default function Properties({ session }) {
   const navigate = useNavigate()
   const [properties, setProperties] = useState([])
+  const [isPro, setIsPro] = useState(false)
+  const [showPaywall, setShowPaywall] = useState(false)
   const [form, setForm] = useState({ address: '', city: '', zip: '', bedrooms: '', bathrooms: '', property_type: '', sqft: '', rent_amount: '' })
   const [loading, setLoading] = useState(false)
   const [showForm, setShowForm] = useState(false)
@@ -22,7 +27,33 @@ export default function Properties({ session }) {
   const [expanded, setExpanded] = useState(null)
   const [markingPaid, setMarkingPaid] = useState(null)
 
-  useEffect(() => { fetchProperties() }, [])
+  useEffect(() => {
+    fetchProperties()
+    checkPro()
+    // Check if returning from Stripe
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('upgraded') === 'true') {
+      activatePro()
+    }
+  }, [])
+
+  async function checkPro() {
+    const { data } = await supabase
+      .from('profiles')
+      .select('is_pro')
+      .eq('id', session.user.id)
+      .single()
+    setIsPro(data?.is_pro || false)
+  }
+
+  async function activatePro() {
+    await supabase
+      .from('profiles')
+      .upsert({ id: session.user.id, is_pro: true })
+    setIsPro(true)
+    // Clean URL
+    window.history.replaceState({}, '', '/properties')
+  }
 
   async function fetchProperties() {
     const uid = session.user.id
@@ -47,6 +78,16 @@ export default function Properties({ session }) {
     }))
 
     setProperties(enriched)
+  }
+
+  function handleAddClick() {
+    if (!isPro && properties.length >= FREE_LIMIT) {
+      setShowPaywall(true)
+      return
+    }
+    setShowForm(!showForm)
+    setEditId(null)
+    setForm({ address: '', city: '', zip: '', bedrooms: '', bathrooms: '', property_type: '', sqft: '', rent_amount: '' })
   }
 
   async function handleSubmit(e) {
@@ -124,14 +165,48 @@ export default function Properties({ session }) {
   return (
     <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', maxWidth: '480px', margin: '0 auto', minHeight: '100vh', background: '#f7f8fa', paddingBottom: '2rem' }}>
 
+      {/* Paywall Modal */}
+      {showPaywall && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}>
+          <div style={{ background: '#fff', borderRadius: '20px', padding: '2rem', maxWidth: '340px', width: '100%', textAlign: 'center' }}>
+            <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🏠</div>
+            <div style={{ fontWeight: '700', fontSize: '1.2rem', color: '#111', marginBottom: '0.5rem' }}>Upgrade to Pro</div>
+            <div style={{ color: '#666', fontSize: '0.9rem', lineHeight: 1.5, marginBottom: '1.5rem' }}>
+              You've used your 2 free properties.<br/>Upgrade to add unlimited properties.
+            </div>
+            <div style={{ fontSize: '2rem', fontWeight: '800', color: '#111', marginBottom: '0.25rem' }}>$9<span style={{ fontSize: '1rem', fontWeight: '400', color: '#888' }}>/mo</span></div>
+            <div style={{ fontSize: '0.8rem', color: '#aaa', marginBottom: '1.5rem' }}>Unlimited properties · All features</div>
+            <a
+              href={`${STRIPE_LINK}?client_reference_id=${session.user.id}&redirect_url=${encodeURIComponent('https://rentyapp.net/properties?upgraded=true')}`}
+              style={{ display: 'block', background: '#111', color: '#fff', borderRadius: '12px', padding: '0.9rem', fontWeight: '700', fontSize: '1rem', textDecoration: 'none', marginBottom: '0.75rem' }}
+            >
+              Upgrade Now →
+            </a>
+            <button onClick={() => setShowPaywall(false)} style={{ background: 'none', border: 'none', color: '#aaa', fontSize: '0.85rem', cursor: 'pointer' }}>
+              Maybe later
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div style={{ background: '#fff', padding: '1.25rem', borderBottom: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <button onClick={() => navigate('/dashboard')} style={{ background: 'none', border: 'none', color: '#999', fontSize: '0.8rem', cursor: 'pointer', padding: 0, marginBottom: '0.25rem', display: 'block' }}>← Dashboard</button>
           <h1 style={{ margin: 0, fontSize: '1.3rem', fontWeight: '700', color: '#111' }}>Properties</h1>
-          {totalMonthly > 0 && <div style={{ fontSize: '0.8rem', color: '#888', marginTop: '0.1rem' }}>${totalMonthly.toLocaleString()}/mo · {properties.length} properties</div>}
+          {totalMonthly > 0 && (
+            <div style={{ fontSize: '0.8rem', color: '#888', marginTop: '0.1rem' }}>
+              ${totalMonthly.toLocaleString()}/mo · {properties.length} properties
+              {isPro && <span style={{ marginLeft: '0.5rem', background: '#111', color: '#fff', borderRadius: '6px', padding: '0.1rem 0.4rem', fontSize: '0.7rem', fontWeight: '600' }}>PRO</span>}
+            </div>
+          )}
+          {!isPro && (
+            <div style={{ fontSize: '0.75rem', color: '#aaa', marginTop: '0.1rem' }}>
+              {properties.length}/{FREE_LIMIT} free properties used
+            </div>
+          )}
         </div>
-        <button onClick={() => { setShowForm(!showForm); setEditId(null); setForm({ address: '', city: '', zip: '', bedrooms: '', bathrooms: '', property_type: '', sqft: '', rent_amount: '' }) }}
+        <button onClick={handleAddClick}
           style={{ background: '#111', color: '#fff', border: 'none', borderRadius: '10px', padding: '0.6rem 1rem', fontSize: '0.85rem', fontWeight: '600', cursor: 'pointer' }}>
           + Add
         </button>
@@ -188,13 +263,11 @@ export default function Properties({ session }) {
         {properties.map((p, idx) => {
           const gradient = PROPERTY_GRADIENTS[idx % PROPERTY_GRADIENTS.length]
           const isExpanded = expanded === p.id
-          const occupiedLeases = p.leases?.filter(l => l.status !== 'draft') || []
           const isOccupied = p.leases?.length > 0
 
           return (
             <div key={p.id} style={{ background: '#fff', borderRadius: '14px', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
 
-              {/* Property card header with gradient */}
               <div style={{ background: gradient, padding: '1.25rem', position: 'relative' }}>
                 <div style={{ position: 'absolute', top: '0.75rem', right: '0.75rem', background: isOccupied ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.15)', backdropFilter: 'blur(4px)', borderRadius: '20px', padding: '0.2rem 0.6rem', fontSize: '0.7rem', fontWeight: '600', color: '#fff' }}>
                   {isOccupied ? `${p.leases.length} Lease${p.leases.length > 1 ? 's' : ''}` : 'Vacant'}
@@ -209,7 +282,6 @@ export default function Properties({ session }) {
                 )}
               </div>
 
-              {/* Actions */}
               <div style={{ padding: '0.75rem 1rem', display: 'flex', gap: '0.5rem', borderBottom: '1px solid #f5f5f5' }}>
                 <button onClick={() => setSelectedMap(selectedMap === p.id ? null : p.id)} style={actionBtnStyle}>📍 Map</button>
                 <button onClick={() => handleEdit(p)} style={actionBtnStyle}>✏️ Edit</button>
@@ -218,7 +290,6 @@ export default function Properties({ session }) {
                 <button onClick={() => handleDelete(p.id)} style={{ ...actionBtnStyle, color: '#dc2626', marginLeft: 'auto' }}>🗑️</button>
               </div>
 
-              {/* Map */}
               {selectedMap === p.id && (
                 <div style={{ borderBottom: '1px solid #f5f5f5' }}>
                   <iframe
@@ -228,7 +299,6 @@ export default function Properties({ session }) {
                 </div>
               )}
 
-              {/* Leases expanded */}
               {isExpanded && (
                 <div style={{ padding: '1rem' }}>
                   {p.leases?.length === 0 && (
