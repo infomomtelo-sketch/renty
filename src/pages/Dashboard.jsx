@@ -10,7 +10,7 @@ function getGreeting() {
   if (h < 12) return 'morning'
   if (h < 17) return 'afternoon'
   return 'evening'
-}
+} 
 
 export default function Dashboard({ session }) {
   const navigate = useNavigate()
