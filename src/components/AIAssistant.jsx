@@ -22,6 +22,8 @@ export default function AIAssistant({ properties = [], tenants = [], leases = []
   const [sendingEmail, setSendingEmail] = useState(false)
   const [lastDraft, setLastDraft]       = useState(null)
   const [formHtml, setFormHtml]         = useState(null)
+  const [creditsLeft, setCreditsLeft]   = useState(null)
+  const [isPro, setIsPro]               = useState(false)
   const bottomRef = useRef(null)
 
   const context = { properties, tenants, leases }
@@ -76,9 +78,19 @@ export default function AIAssistant({ properties = [], tenants = [], leases = []
       })
 
       const data = await res.json()
+
+      // Handle limit reached
+      if (res.status === 402) {
+        setMessages(prev => [...prev, { role: 'assistant', content: data.text }])
+        setCreditsLeft(0)
+        return
+      }
+
       if (!res.ok || data.error) throw new Error(data.error || 'Worker error')
 
-      // If there's a form, show friendly message instead of code
+      if (data.remaining !== undefined) setCreditsLeft(data.remaining)
+      if (data.isPro !== undefined) setIsPro(data.isPro)
+
       const displayText = data.formHtml
         ? '✅ Your form is ready! Tap "Open Form" below to fill it out and print or share it.'
         : data.text
@@ -149,38 +161,22 @@ export default function AIAssistant({ properties = [], tenants = [], leases = []
 
   return (
     <>
-      {/* RunP8 App Bar — sits above bottom nav */}
+      {/* RunP8 App Bar */}
       <div style={{
-        position: 'fixed',
-        bottom: 72,
-        left: 0,
-        right: 0,
-        zIndex: 997,
-        display: 'flex',
-        justifyContent: 'center',
-        pointerEvents: 'none',
+        position: 'fixed', bottom: 72, left: 0, right: 0, zIndex: 997,
+        display: 'flex', justifyContent: 'center', pointerEvents: 'none',
       }}>
         <div style={{
-          display: 'flex',
-          gap: 8,
-          background: 'rgba(17,17,17,0.92)',
-          backdropFilter: 'blur(8px)',
-          borderRadius: 24,
-          padding: '6px 12px',
-          pointerEvents: 'all',
-          boxShadow: '0 2px 12px rgba(0,0,0,0.2)',
-          marginRight: 72, // leave room for FAB on right
+          display: 'flex', gap: 8,
+          background: 'rgba(17,17,17,0.92)', backdropFilter: 'blur(8px)',
+          borderRadius: 24, padding: '6px 12px', pointerEvents: 'all',
+          boxShadow: '0 2px 12px rgba(0,0,0,0.2)', marginRight: 72,
         }}>
           {APPS.map(app => (
             <a key={app.label} href={app.url} target="_blank" rel="noopener noreferrer"
               style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 2,
-                textDecoration: 'none',
-                padding: '4px 8px',
-                borderRadius: 12,
+                display: 'flex', flexDirection: 'column', alignItems: 'center',
+                gap: 2, textDecoration: 'none', padding: '4px 8px', borderRadius: 12,
                 transition: 'background 0.15s',
               }}
               onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
@@ -228,9 +224,11 @@ export default function AIAssistant({ properties = [], tenants = [], leases = []
             <div>
               <div style={{ fontWeight: 600, fontSize: 14 }}>✦ Renty AI</div>
               <div style={{ fontSize: 10, opacity: 0.6, marginTop: 1 }}>
-                {tenants.length
-                  ? `${tenants.length} tenant${tenants.length !== 1 ? 's' : ''} · ${properties.length} propert${properties.length !== 1 ? 'ies' : 'y'}`
-                  : 'No data loaded yet'}
+                {isPro ? 'Pro · Unlimited AI' :
+                  creditsLeft !== null ? `${creditsLeft} AI calls left this month` :
+                  tenants.length
+                    ? `${tenants.length} tenant${tenants.length !== 1 ? 's' : ''} · ${properties.length} propert${properties.length !== 1 ? 'ies' : 'y'}`
+                    : 'No data loaded yet'}
               </div>
             </div>
             <button onClick={() => setOpen(false)}
