@@ -17,6 +17,8 @@ import Account from './pages/Account'
 import Apply from './pages/Apply'
 import Privacy from './pages/Privacy'
 import Terms from './pages/Terms'
+import Contact from './pages/Contact'
+import Help from './pages/Help'
 import Inspection from './pages/Inspection'
 import Applications from './pages/Applications'
 
@@ -44,6 +46,8 @@ export default function App() {
         <Route path="/apply/:leaseId"      element={<Apply />} />
         <Route path="/privacy"             element={<Privacy />} />
         <Route path="/terms"               element={<Terms />} />
+        <Route path="/contact"             element={<Contact />} />
+        <Route path="/help"                element={<Help />} />
 
         {/* Protected */}
         <Route path="/dashboard"     element={session ? <Dashboard     session={session} /> : <Navigate to="/login" replace />} />
