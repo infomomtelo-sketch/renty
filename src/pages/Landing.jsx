@@ -40,14 +40,14 @@ export default function Landing() {
     <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>📄</div>
     <h3 style={{ margin: '0 0 0.75rem' }}>Generate Lease Agreements Online</h3>
     <p style={{ margin: 0, color: '#666', lineHeight: '1.6' }}>
-      Create professional, legally structured residential lease agreements in minutes. Fill in your property details, tenant information, and lease terms — Renty generates a clean PDF you can download and sign instantly. No Word templates, no lawyers needed for standard leases. Built for California independent landlords.
+      Create professional, legally structured residential lease agreements in minutes. Fill in your property details, tenant information, and lease terms — Renty generates a clean PDF you can download, print, or share.
     </p>
   </div>
   <div style={{ padding: '1.5rem', border: '1px solid #eee', borderRadius: '8px' }}>
     <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>🏠</div>
     <h3 style={{ margin: '0 0 0.75rem' }}>Track Rent Payments & Properties</h3>
     <p style={{ margin: 0, color: '#666', lineHeight: '1.6' }}>
-      Manage all your properties, tenants, and leases in one place. Track rent payments month by month, mark paid or unpaid with one click, and see your total portfolio value at a glance. Built for independent landlords managing 1 to 20 units without the complexity of enterprise software.
+      Manage all your properties, tenants, and leases in one place. Track rent payments month by month, mark paid or unpaid with one click, and see your total portfolio value at a glance. Built for independent landlords.
     </p>
   </div>
 </div>
@@ -76,18 +76,18 @@ export default function Landing() {
           <div style={{ fontSize: '2.5rem', fontWeight: 'bold' }}>$9<span style={{ fontSize: '1rem', fontWeight: 'normal' }}>/mo</span></div>
           <div style={{ fontSize: '0.9rem', color: '#666', margin: '0.5rem 0 1.5rem' }}>7-day free trial — cancel anytime</div>
          <ul style={{ textAlign: 'left', margin: '0 0 1.5rem', padding: '0 0 0 1.2rem', lineHeight: '2' }}>
-  <li>🤖 AI property manager assistant</li>
-  <li>Unlimited properties</li>
-  <li>Unlimited lease agreements</li>
-  <li>Professional PDF generation</li>
-  <li>Tenant management</li>
-  <li>Rent payment tracking</li>
-  <li>No transaction fees</li>
+   <li>🤖 AI property manager assistant</li>
+   <li>Unlimited properties</li>
+   <li>Unlimited lease agreements</li>
+   <li>Professional PDF generation</li>
+   <li>Tenant management</li>
+   <li>Rent payment tracking</li>
+   <li>No transaction fees</li>
 </ul>
-          <button onClick={() => navigate('/signup')} style={{ width: '100%', padding: '0.75rem', background: '#000', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '1rem', marginBottom: '0.75rem' }}>
+          <button onClick={() => navigate('/signup')} style={{ width: '100%', padding: '0.75rem', background: '#000', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.95rem', fontWeight: '600', marginBottom: '0.5rem' }}>
             Start free trial
           </button>
-          <button onClick={() => navigate('/signup')} style={{ width: '100%', padding: '0.75rem', background: '#fff', color: '#000', border: '1px solid #000', borderRadius: '6px', cursor: 'pointer', fontSize: '0.9rem' }}>
+          <button onClick={() => navigate('/signup')} style={{ width: '100%', padding: '0.75rem', background: '#fff', color: '#000', border: '1px solid #000', borderRadius: '6px', cursor: 'pointer', fontSize: '0.95rem', fontWeight: '600' }}>
             Start free — no credit card needed
           </button>
 </div>
@@ -98,12 +98,11 @@ export default function Landing() {
         <div style={{ display: 'flex', justifyContent: 'center', gap: '1.5rem', margin: '0.75rem 0', flexWrap: 'wrap' }}>
           <a href="/privacy" style={{ color: '#666', textDecoration: 'none' }}>Privacy Policy</a>
           <a href="/terms" style={{ color: '#666', textDecoration: 'none' }}>Terms of Service</a>
-          <a href="mailto:support@rentyapp.net" style={{ color: '#666', textDecoration: 'none' }}>Support</a>
-          <a href="mailto:support@rentyapp.net" style={{ color: '#666', textDecoration: 'none' }}>Contact</a>
+          <a href="/help" style={{ color: '#666', textDecoration: 'none' }}>Help</a>
+          <a href="/contact" style={{ color: '#666', textDecoration: 'none' }}>Contact</a>
         </div>
         <p>© 2026 Renty. Built for California landlords.</p>
       </div>
     </div>
   )
 }
-
