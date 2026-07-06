@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
+import { resetPassword, friendlyError } from '../lib/auth'
 
 const styles = {
   page: {
@@ -32,7 +32,6 @@ const styles = {
     fontSize: '0.875rem',
     color: '#888',
     marginBottom: '2rem',
-    lineHeight: '1.5',
   },
   label: {
     display: 'block',
@@ -51,11 +50,19 @@ const styles = {
     background: '#fafafa',
     outline: 'none',
     boxSizing: 'border-box',
-    transition: 'border-color 0.15s',
+    transition: 'border-color 0.15s, background 0.15s',
+    fontFamily: 'inherit',
   },
   inputFocus: {
     borderColor: '#111',
     background: '#fff',
+  },
+  inputError: {
+    borderColor: '#dc2626',
+    background: '#fff5f5',
+  },
+  fieldGroup: {
+    marginBottom: '1rem',
   },
   btn: {
     width: '100%',
@@ -67,8 +74,9 @@ const styles = {
     fontSize: '0.95rem',
     fontWeight: '600',
     cursor: 'pointer',
-    marginTop: '1rem',
-    transition: 'opacity 0.15s',
+    marginTop: '0.5rem',
+    transition: 'opacity 0.15s, background 0.15s',
+    fontFamily: 'inherit',
   },
   btnDisabled: {
     opacity: 0.5,
@@ -82,6 +90,8 @@ const styles = {
     color: '#dc2626',
     fontSize: '0.85rem',
     marginBottom: '1rem',
+    lineHeight: '1.5',
+    animation: 'slideIn 0.2s ease-out',
   },
   successBox: {
     textAlign: 'center',
@@ -126,19 +136,43 @@ export default function ForgotPassword() {
   const [error, setError] = useState('')
   const [done, setDone] = useState(false)
   const [focused, setFocused] = useState(false)
+  const [fieldError, setFieldError] = useState('')
+
+  function validateEmail(email) {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    return re.test(email)
+  }
 
   async function handleSubmit(e) {
     e.preventDefault()
+    
+    if (!email.trim()) {
+      setFieldError('Email is required')
+      return
+    }
+    
+    if (!validateEmail(email)) {
+      setFieldError('Please enter a valid email')
+      return
+    }
+
     setError('')
+    setFieldError('')
     setLoading(true)
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: 'https://rentyapp.net/reset-password',
-    })
-    setLoading(false)
-    if (error) {
-      setError('Could not send reset email. Check the address and try again.')
-    } else {
-      setDone(true)
+    
+    try {
+      const { data, error } = await resetPassword(email)
+      
+      setLoading(false)
+      
+      if (error) {
+        setError('Could not send reset email. Please check the address and try again.')
+      } else {
+        setDone(true)
+      }
+    } catch (err) {
+      setLoading(false)
+      setError('Network error. Please check your connection and try again.')
     }
   }
 
@@ -165,37 +199,67 @@ export default function ForgotPassword() {
 
   return (
     <div style={styles.page}>
+      <style>{`
+        @keyframes slideIn {
+          from {
+            opacity: 0;
+            transform: translateY(-4px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        a:hover { text-decoration: underline; }
+      `}</style>
+      
       <div style={styles.card}>
         <div style={styles.logo}>Renty</div>
         <div style={styles.subtitle}>
           Enter your email and we'll send you a link to reset your password.
         </div>
 
-        {error && <div style={styles.errorBox}>{error}</div>}
+        {error && <div style={styles.errorBox} role="alert">{error}</div>}
 
         <form onSubmit={handleSubmit}>
-          <label style={styles.label}>Email</label>
-          <input
-            type="email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
-            placeholder="you@example.com"
-            required
-            style={{ ...styles.input, ...(focused ? styles.inputFocus : {}) }}
-          />
+          <div style={styles.fieldGroup}>
+            <label style={styles.label} htmlFor="email">Email</label>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={e => {
+                setEmail(e.target.value)
+                setFieldError('')
+              }}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
+              placeholder="you@example.com"
+              required
+              disabled={loading}
+              aria-invalid={!!fieldError}
+              aria-describedby="email-error"
+              style={{
+                ...styles.input,
+                ...(focused ? styles.inputFocus : {}),
+                ...(fieldError ? styles.inputError : {}),
+              }}
+            />
+            {fieldError && <div style={{ color: '#dc2626', fontSize: '0.75rem', marginTop: '0.25rem' }} id="email-error">{fieldError}</div>}
+          </div>
+
           <button
             type="submit"
             disabled={loading}
             style={{ ...styles.btn, ...(loading ? styles.btnDisabled : {}) }}
+            aria-busy={loading}
           >
             {loading ? 'Sending…' : 'Send reset link'}
           </button>
         </form>
 
         <div style={styles.footer}>
-          Remembered it? <Link to="/login" style={styles.link}>Sign in</Link>
+          Remember your password? <Link to="/login" style={styles.link}>Sign in</Link>
         </div>
       </div>
     </div>

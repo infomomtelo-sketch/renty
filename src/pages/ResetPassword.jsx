@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { updatePassword, friendlyError } from '../lib/auth'
 
 const styles = {
   page: {
@@ -50,11 +51,16 @@ const styles = {
     background: '#fafafa',
     outline: 'none',
     boxSizing: 'border-box',
-    transition: 'border-color 0.15s',
+    transition: 'border-color 0.15s, background 0.15s',
+    fontFamily: 'inherit',
   },
   inputFocus: {
     borderColor: '#111',
     background: '#fff',
+  },
+  inputError: {
+    borderColor: '#dc2626',
+    background: '#fff5f5',
   },
   fieldGroup: {
     marginBottom: '1rem',
@@ -70,7 +76,8 @@ const styles = {
     fontWeight: '600',
     cursor: 'pointer',
     marginTop: '0.5rem',
-    transition: 'opacity 0.15s',
+    transition: 'opacity 0.15s, background 0.15s',
+    fontFamily: 'inherit',
   },
   btnDisabled: {
     opacity: 0.5,
@@ -84,6 +91,8 @@ const styles = {
     color: '#dc2626',
     fontSize: '0.85rem',
     marginBottom: '1rem',
+    lineHeight: '1.5',
+    animation: 'slideIn 0.2s ease-out',
   },
   successBox: {
     textAlign: 'center',
@@ -119,6 +128,15 @@ const styles = {
     fontWeight: '600',
     textDecoration: 'none',
   },
+  loadingSpinner: {
+    width: 32,
+    height: 32,
+    border: '3px solid #eee',
+    borderTopColor: '#111',
+    borderRadius: '50%',
+    animation: 'spin 0.7s linear infinite',
+    margin: '0 auto 1rem',
+  },
 }
 
 export default function ResetPassword() {
@@ -130,6 +148,7 @@ export default function ResetPassword() {
   const [done, setDone] = useState(false)
   const [validSession, setValidSession] = useState(null) // null=checking, true, false
   const [focusedField, setFocusedField] = useState(null)
+  const [fieldErrors, setFieldErrors] = useState({})
 
   useEffect(() => {
     // Supabase exchanges the token from the URL hash and fires PASSWORD_RECOVERY event
@@ -140,13 +159,18 @@ export default function ResetPassword() {
     })
 
     // Also check if there's already a valid session (e.g. page reload)
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error: err }) => {
+      if (err) {
+        setValidSession(false)
+        return
+      }
       if (session) setValidSession(true)
     })
 
+    // Safety timeout — if nothing happens in 5s, show error
     const timeout = setTimeout(() => {
       setValidSession(prev => prev === null ? false : prev)
-    }, 4000)
+    }, 5000)
 
     return () => {
       subscription.unsubscribe()
@@ -154,28 +178,48 @@ export default function ResetPassword() {
     }
   }, [])
 
+  function validateForm() {
+    const errors = {}
+    
+    if (!password) {
+      errors.password = 'Password is required'
+    } else if (password.length < 6) {
+      errors.password = 'Password must be at least 6 characters'
+    }
+    
+    if (!confirm) {
+      errors.confirm = 'Please confirm your password'
+    } else if (password !== confirm) {
+      errors.confirm = 'Passwords do not match'
+    }
+    
+    setFieldErrors(errors)
+    return Object.keys(errors).length === 0
+  }
+
   async function handleReset(e) {
     e.preventDefault()
-    setError('')
-
-    if (password !== confirm) {
-      setError('Passwords do not match.')
-      return
-    }
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters.')
-      return
-    }
+    
+    if (!validateForm()) return
 
     setLoading(true)
-    const { error } = await supabase.auth.updateUser({ password })
-    setLoading(false)
-
-    if (error) {
-      setError('Could not update password. Please request a new reset link.')
-    } else {
-      setDone(true)
-      setTimeout(() => navigate('/dashboard'), 2500)
+    setError('')
+    
+    try {
+      const { data, error } = await updatePassword(password)
+      
+      setLoading(false)
+      
+      if (error) {
+        setError('Could not update password. Please request a new reset link.')
+      } else {
+        setDone(true)
+        // Redirect to dashboard after 2.5 seconds
+        setTimeout(() => navigate('/dashboard'), 2500)
+      }
+    } catch (err) {
+      setLoading(false)
+      setError('Network error. Please check your connection and try again.')
     }
   }
 
@@ -183,16 +227,11 @@ export default function ResetPassword() {
   if (validSession === null) {
     return (
       <div style={styles.page}>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         <div style={styles.card}>
           <div style={{ textAlign: 'center', padding: '2rem 0', color: '#888', fontSize: '0.9rem' }}>
-            <div style={{
-              width: 32, height: 32, border: '3px solid #eee',
-              borderTopColor: '#111', borderRadius: '50%',
-              animation: 'spin 0.7s linear infinite',
-              margin: '0 auto 1rem',
-            }} />
+            <div style={styles.loadingSpinner} />
             Verifying your reset link…
-            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
           </div>
         </div>
       </div>
@@ -240,50 +279,93 @@ export default function ResetPassword() {
 
   return (
     <div style={styles.page}>
+      <style>{`
+        @keyframes slideIn {
+          from {
+            opacity: 0;
+            transform: translateY(-4px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        a:hover { text-decoration: underline; }
+      `}</style>
+      
       <div style={styles.card}>
         <div style={styles.logo}>Renty</div>
         <div style={styles.subtitle}>Choose a new password for your account.</div>
 
-        {error && <div style={styles.errorBox}>{error}</div>}
+        {error && <div style={styles.errorBox} role="alert">{error}</div>}
 
         <form onSubmit={handleReset}>
           <div style={styles.fieldGroup}>
-            <label style={styles.label}>New password</label>
+            <label style={styles.label} htmlFor="password">New password</label>
             <input
+              id="password"
               type="password"
               value={password}
-              onChange={e => setPassword(e.target.value)}
+              onChange={e => {
+                setPassword(e.target.value)
+                setFieldErrors(prev => ({ ...prev, password: '' }))
+              }}
               onFocus={() => setFocusedField('password')}
               onBlur={() => setFocusedField(null)}
               placeholder="••••••••"
               required
-              style={{ ...styles.input, ...(focusedField === 'password' ? styles.inputFocus : {}) }}
+              disabled={loading}
+              aria-invalid={!!fieldErrors.password}
+              aria-describedby="password-error"
+              style={{
+                ...styles.input,
+                ...(focusedField === 'password' ? styles.inputFocus : {}),
+                ...(fieldErrors.password ? styles.inputError : {}),
+              }}
             />
-            <div style={styles.hint}>Minimum 6 characters</div>
+            {fieldErrors.password && <div style={{ color: '#dc2626', fontSize: '0.75rem', marginTop: '0.25rem' }} id="password-error">{fieldErrors.password}</div>}
+            {!fieldErrors.password && <div style={styles.hint}>Minimum 6 characters</div>}
           </div>
 
           <div style={styles.fieldGroup}>
-            <label style={styles.label}>Confirm new password</label>
+            <label style={styles.label} htmlFor="confirm">Confirm new password</label>
             <input
+              id="confirm"
               type="password"
               value={confirm}
-              onChange={e => setConfirm(e.target.value)}
+              onChange={e => {
+                setConfirm(e.target.value)
+                setFieldErrors(prev => ({ ...prev, confirm: '' }))
+              }}
               onFocus={() => setFocusedField('confirm')}
               onBlur={() => setFocusedField(null)}
               placeholder="••••••••"
               required
-              style={{ ...styles.input, ...(focusedField === 'confirm' ? styles.inputFocus : {}) }}
+              disabled={loading}
+              aria-invalid={!!fieldErrors.confirm}
+              aria-describedby="confirm-error"
+              style={{
+                ...styles.input,
+                ...(focusedField === 'confirm' ? styles.inputFocus : {}),
+                ...(fieldErrors.confirm ? styles.inputError : {}),
+              }}
             />
+            {fieldErrors.confirm && <div style={{ color: '#dc2626', fontSize: '0.75rem', marginTop: '0.25rem' }} id="confirm-error">{fieldErrors.confirm}</div>}
           </div>
 
           <button
             type="submit"
             disabled={loading}
             style={{ ...styles.btn, ...(loading ? styles.btnDisabled : {}) }}
+            aria-busy={loading}
           >
             {loading ? 'Updating…' : 'Update password'}
           </button>
         </form>
+
+        <div style={styles.footer}>
+          <Link to="/login" style={styles.link}>Back to sign in</Link>
+        </div>
       </div>
     </div>
   )
