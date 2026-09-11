@@ -1,2 +1,8 @@
 node_modules/
 dist/
+bun.lockb
+*.local
+*.log
+.DS_Store
+.idea/
+.vscode/
